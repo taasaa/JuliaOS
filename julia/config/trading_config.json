@@ -1,0 +1,21 @@
+{
+    "chain": "ethereum",
+    "dex": "uniswap-v3",
+    "trading_pairs": ["ETH/USDC", "WBTC/USDC"],
+    "wallet_address": "0x...",
+    "max_position_size": 0.05,
+    "trading_algorithm": "pso",
+    "algorithm_params": {
+        "inertia_weight": 0.7,
+        "cognitive_coef": 1.5,
+        "social_coef": 1.5
+    },
+    "bridge_config": {
+        "endpoint": "http://localhost:3000/julia-bridge",
+        "ws_endpoint": "ws://localhost:3000/julia-bridge-ws"
+    },
+    "market_data": {
+        "historical_days": 30,
+        "interval": "1h"
+    }
+} 

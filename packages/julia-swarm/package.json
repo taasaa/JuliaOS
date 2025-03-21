@@ -1,0 +1,48 @@
+{
+  "name": "@juliaos/julia-swarm",
+  "version": "0.1.0",
+  "description": "DeFi trading swarm implementation using Julia and TypeScript",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "lint": "eslint src/**/*.ts",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "julia",
+    "defi",
+    "trading",
+    "swarm",
+    "ai",
+    "blockchain",
+    "solana",
+    "ethereum",
+    "base"
+  ],
+  "author": "JuliaOS Team",
+  "license": "MIT",
+  "dependencies": {
+    "@solana/web3.js": "^1.87.6",
+    "@solana/spl-token": "^0.3.9",
+    "ethers": "^6.9.0",
+    "node-fetch": "^3.3.2",
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.11",
+    "@types/node": "^20.10.5",
+    "@types/ws": "^8.5.10",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "chai": "^4.3.7",
+    "eslint": "^8.56.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.3.3"
+  },
+  "peerDependencies": {
+    "@juliaos/core": "^0.1.0"
+  }
+} 

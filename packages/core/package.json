@@ -1,0 +1,26 @@
+{
+  "name": "@juliaos/core",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.0",
+    "@solana/web3.js": "^1.87.0",
+    "arweave": "^1.14.4",
+    "arweave-bundles": "^1.0.3",
+    "ethers": "^6.0.0",
+    "events": "^3.3.0"
+  },
+  "devDependencies": {
+    "@types/events": "^3.0.0",
+    "@types/jest": "^29.0.0",
+    "hardhat": "^2.19.0",
+    "jest": "^29.0.0",
+    "typescript": "^5.0.0"
+  }
+} 

@@ -1,0 +1,41 @@
+{
+  "name": "@juliaos/cli",
+  "version": "0.1.0",
+  "description": "Command-line interface for JuliaOS Framework",
+  "bin": {
+    "j3os": "./bin/j3os.js"
+  },
+  "scripts": {
+    "build": "mkdir -p bin && touch bin/j3os.js && chmod +x bin/j3os.js",
+    "postinstall": "node scripts/setup.js"
+  },
+  "files": [
+    "bin",
+    "j3os.ps1",
+    "j3os.sh",
+    "scripts",
+    "README.md"
+  ],
+  "keywords": [
+    "cli",
+    "juliaos",
+    "ai",
+    "agents",
+    "framework"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/juliaos/framework.git"
+  },
+  "author": "JuliaOS",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/juliaos/framework/issues"
+  },
+  "homepage": "https://github.com/juliaos/framework#readme",
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "commander": "^11.1.0",
+    "inquirer": "^8.2.6"
+  }
+} 

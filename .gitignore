@@ -1,0 +1,80 @@
+# Build and Output
+dist/
+build/
+target/
+artifacts/
+cache/
+typechain-types/
+.turbo/
+node_modules/
+
+# Test and Development
+test-ledger/
+test-cli-project/
+test-project/
+tests.old
+coverage/
+.nyc_output/
+
+# Environment and Secrets
+.env
+.env.local
+.env.*.local
+.env.test
+.env.development
+.env.production
+secrets.json
+credentials.json
+*-wallet.json
+wallet.json
+*-keypair.json
+*.pem
+*.key
+*.cert
+
+# IDE and Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
+
+# OS Generated
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Julia Specific
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+/julia/deps/deps.jl
+/julia/Manifest.toml
+/julia/Project.toml
+/julia/artifacts/
+/julia/compiled/
+/julia/logs/
+
+# Package Manager
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Generated Files
+*.tsbuildinfo
+*.js.map
+*.d.ts
+
+# Temporary Files
+*.tmp
+*.temp
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.debug/ 
