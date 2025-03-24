@@ -4,6 +4,19 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 
+/**
+ * Custom error class for JuliaBridge errors
+ */
+export class JuliaBridgeError extends Error {
+  public readonly code: string;
+  
+  constructor(message: string, code: string) {
+    super(message);
+    this.name = 'JuliaBridgeError';
+    this.code = code;
+  }
+}
+
 export interface SwarmConfig {
   id?: string;
   name?: string;
@@ -191,37 +204,34 @@ export class JuliaBridge extends EventEmitter {
   }
 
   private handleJuliaOutput(data: Buffer): void {
-    const message = data.toString().trim();
+    const outputStr = data.toString().trim();
     
-    // Handle special messages
-    if (message.startsWith('ERROR:')) {
-      this.emit('error', new Error(message.substring(6)));
-      return;
-    } else if (message.startsWith('INFO:')) {
-      this.emit('info', message.substring(5));
-      return;
-    }
-    
-    // Try to parse as JSON response
     try {
-      const response = JSON.parse(message);
+      // Try to parse as JSON
+      const response = JSON.parse(outputStr);
+      
       if (response.id && this.pendingCommands.has(response.id)) {
         const { resolve, reject, timeout } = this.pendingCommands.get(response.id)!;
         clearTimeout(timeout);
         this.pendingCommands.delete(response.id);
         
         if (response.error) {
-          reject(new Error(response.error));
+          reject(new JuliaBridgeError(response.error.message || 'Unknown Julia error', response.error.code || 'JULIA_ERROR'));
         } else {
-          resolve(response.data);
+          resolve(response.result);
         }
       } else if (response.event) {
-        // Handle event messages from Julia
+        // Handle events from Julia
         this.emit(response.event, response.data);
       }
     } catch (error) {
-      // Not JSON, just log
-      this.emit('output', message);
+      // Not JSON or invalid JSON
+      if (outputStr.includes('ERROR:')) {
+        this.emit('error', new JuliaBridgeError(`Julia error: ${outputStr}`, 'JULIA_RUNTIME_ERROR'));
+      } else {
+        // Just log as debug output
+        this.emit('stdout', outputStr);
+      }
     }
   }
 
@@ -308,10 +318,10 @@ export class JuliaBridge extends EventEmitter {
     return Array.from(this.activeSwarms.keys());
   }
 
-  private sendCommand(command: string, data?: any): Promise<any> {
+  private sendCommand(command: string, data?: any, retryCount: number = 0): Promise<any> {
     return new Promise((resolve, reject) => {
       if (!this.juliaProcess || !this.juliaProcess.stdin) {
-        return reject(new Error('Julia process not running'));
+        return reject(new JuliaBridgeError('Julia process not running', 'PROCESS_NOT_RUNNING'));
       }
       
       const id = uuidv4();
@@ -319,12 +329,27 @@ export class JuliaBridge extends EventEmitter {
       
       const timeout = setTimeout(() => {
         this.pendingCommands.delete(id);
-        reject(new Error(`Command ${command} timeout`));
+        
+        // Retry logic for timeouts
+        if (retryCount < 3) {
+          console.warn(`Command ${command} timed out, retrying (${retryCount + 1}/3)...`);
+          this.sendCommand(command, data, retryCount + 1)
+            .then(resolve)
+            .catch(reject);
+        } else {
+          reject(new JuliaBridgeError(`Command ${command} timed out after ${retryCount + 1} attempts`, 'COMMAND_TIMEOUT'));
+        }
       }, 30000);
       
       this.pendingCommands.set(id, { resolve, reject, timeout });
       
-      this.juliaProcess.stdin.write(message + '\n');
+      try {
+        this.juliaProcess.stdin.write(message + '\n');
+      } catch (error) {
+        clearTimeout(timeout);
+        this.pendingCommands.delete(id);
+        reject(new JuliaBridgeError(`Failed to send command to Julia process: ${error instanceof Error ? error.message : String(error)}`, 'WRITE_FAILED'));
+      }
     });
   }
 
@@ -333,11 +358,24 @@ export class JuliaBridge extends EventEmitter {
       // Stop all swarms
       await this.stopSwarm();
       
-      // Send shutdown command
-      await this.sendCommand('shutdown');
+      // Send shutdown command with timeout
+      const shutdownPromise = this.sendCommand('shutdown');
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new JuliaBridgeError('Shutdown command timed out', 'SHUTDOWN_TIMEOUT')), 5000)
+      );
+      
+      await Promise.race([shutdownPromise, timeoutPromise]);
     } catch (error) {
       console.error('Error during shutdown:', error);
+      // Continue with shutdown process even if there was an error
     } finally {
+      // Clean up all pending commands
+      for (const [id, { reject, timeout }] of this.pendingCommands.entries()) {
+        clearTimeout(timeout);
+        reject(new JuliaBridgeError('Bridge is shutting down', 'SHUTDOWN'));
+        this.pendingCommands.delete(id);
+      }
+      
       // Kill Julia process
       if (this.juliaProcess) {
         this.juliaProcess.kill();
@@ -345,7 +383,6 @@ export class JuliaBridge extends EventEmitter {
       }
       
       this.isInitialized = false;
-      this.pendingCommands.clear();
       this.activeSwarms.clear();
     }
   }

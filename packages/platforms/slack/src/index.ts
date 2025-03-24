@@ -1,34 +1,36 @@
-import { EventEmitter } from 'events';
 import { App, LogLevel } from '@slack/bolt';
 import { WebClient } from '@slack/web-api';
+import { Platform, PlatformConfig, MessageData } from '@juliaos/core';
 
-export interface SlackConfig {
-  token: string;
-  signingSecret: string;
-  appToken: string;
-  commandPrefix: string;
-  port?: number;
+export interface SlackConfig extends PlatformConfig {
+  parameters: {
+    token: string;
+    signingSecret: string;
+    appToken: string;
+    commandPrefix: string;
+    port?: number;
+  };
 }
 
-export class SlackConnector extends EventEmitter {
+export class SlackConnector extends Platform {
   private app: App;
   private client: WebClient;
-  private config: SlackConfig;
+  private commandPrefix: string;
 
   constructor(config: SlackConfig) {
-    super();
-    this.config = config;
+    super(config);
+    this.commandPrefix = config.parameters.commandPrefix;
     
     this.app = new App({
-      token: config.token,
-      signingSecret: config.signingSecret,
+      token: config.parameters.token,
+      signingSecret: config.parameters.signingSecret,
       socketMode: true,
-      appToken: config.appToken,
-      port: config.port || 3000,
+      appToken: config.parameters.appToken,
+      port: config.parameters.port || 3000,
       logLevel: LogLevel.DEBUG
     });
 
-    this.client = new WebClient(config.token);
+    this.client = new WebClient(config.parameters.token);
     this.setupEventHandlers();
   }
 
@@ -40,35 +42,43 @@ export class SlackConnector extends EventEmitter {
       const content = message.text || '';
       
       // Check if it's a command
-      if (content.startsWith(this.config.commandPrefix)) {
-        const command = content.slice(this.config.commandPrefix.length).trim();
+      if (content.startsWith(this.commandPrefix)) {
+        const commandContent = content.slice(this.commandPrefix.length).trim();
+        const commandParts = commandContent.split(/\s+/);
+        const command = commandParts[0];
+        const args = commandParts.slice(1);
+        
         this.emit('command', {
-          content: command,
-          authorId: message.user,
+          command,
+          args,
+          content: commandContent,
+          sender: message.user,
           channelId: message.channel,
           messageId: message.ts,
-          raw: message
+          timestamp: new Date(Number(message.ts) * 1000)
         });
+        
+        return;
       }
 
       // Emit message event
-      this.emit('message', {
+      const messageData: MessageData = {
         content,
-        authorId: message.user,
+        sender: message.user,
         channelId: message.channel,
-        messageId: message.ts,
-        raw: message
-      });
+        timestamp: new Date(Number(message.ts) * 1000)
+      };
+      
+      this.emit('message', messageData);
     });
 
     // Handle app mentions
     this.app.event('app_mention', async ({ event }) => {
       this.emit('mention', {
         content: event.text,
-        authorId: event.user,
+        sender: event.user,
         channelId: event.channel,
-        messageId: event.ts,
-        raw: event
+        timestamp: new Date(Number(event.ts) * 1000)
       });
     });
 
@@ -76,10 +86,10 @@ export class SlackConnector extends EventEmitter {
     this.app.event('reaction_added', async ({ event }) => {
       this.emit('reactionAdded', {
         reaction: event.reaction,
-        authorId: event.user,
+        sender: event.user,
         messageId: event.item.ts,
         channelId: event.item.channel,
-        raw: event
+        timestamp: new Date()
       });
     });
   }
@@ -87,26 +97,53 @@ export class SlackConnector extends EventEmitter {
   async connect(): Promise<void> {
     try {
       await this.app.start();
-      this.emit('connected');
+      this.setConnected(true);
+      console.log(`Slack connector ${this.name} connected successfully`);
     } catch (error) {
+      console.error('Failed to connect to Slack:', error);
       this.emit('error', error);
       throw error;
     }
   }
 
   async disconnect(): Promise<void> {
-    await this.app.stop();
-    this.emit('disconnected');
+    try {
+      await this.app.stop();
+      this.setConnected(false);
+      console.log(`Slack connector ${this.name} disconnected`);
+    } catch (error) {
+      console.error('Failed to disconnect from Slack:', error);
+      this.emit('error', error);
+      throw error;
+    }
+  }
+
+  async start(): Promise<void> {
+    if (!this.isActive()) {
+      await this.connect();
+    }
+  }
+
+  async stop(): Promise<void> {
+    if (this.isActive()) {
+      await this.disconnect();
+    }
   }
 
   async sendMessage(content: string, channelId: string, threadTs?: string): Promise<void> {
     try {
-      await this.client.chat.postMessage({
+      const params: any = {
         channel: channelId,
-        text: content,
-        thread_ts: threadTs
-      });
+        text: content
+      };
+
+      if (threadTs) {
+        params.thread_ts = threadTs;
+      }
+
+      await this.client.chat.postMessage(params);
     } catch (error) {
+      console.error('Failed to send Slack message:', error);
       this.emit('error', error);
       throw error;
     }
@@ -120,6 +157,7 @@ export class SlackConnector extends EventEmitter {
         text: content
       });
     } catch (error) {
+      console.error('Failed to update Slack message:', error);
       this.emit('error', error);
       throw error;
     }
@@ -132,6 +170,7 @@ export class SlackConnector extends EventEmitter {
         ts: messageId
       });
     } catch (error) {
+      console.error('Failed to delete Slack message:', error);
       this.emit('error', error);
       throw error;
     }
@@ -145,6 +184,7 @@ export class SlackConnector extends EventEmitter {
         name: reaction
       });
     } catch (error) {
+      console.error('Failed to add Slack reaction:', error);
       this.emit('error', error);
       throw error;
     }
@@ -158,6 +198,7 @@ export class SlackConnector extends EventEmitter {
         name: reaction
       });
     } catch (error) {
+      console.error('Failed to remove Slack reaction:', error);
       this.emit('error', error);
       throw error;
     }

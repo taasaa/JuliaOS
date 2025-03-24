@@ -1,6 +1,6 @@
-name = "JuliaOS"
-uuid = "b8e3c0f3-0f5f-4f8f-9c1f-1c1f1c1f1c1f"
-authors = ["Your Name <your.email@example.com>"]
+name = "JuliaOSBridge"
+uuid = "87654321-4321-8765-4321-876543210987"
+authors = ["JuliaOS Contributors <contributors@juliaos.org>"]
 version = "0.1.0"
 
 [deps]
@@ -17,7 +17,7 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 [compat]
 julia = "1.11"
 JSON = "0.21"
-HTTP = "1.0"
+HTTP = "1.9.14"
 DataFrames = "1.0"
 Distributions = "0.25"
 

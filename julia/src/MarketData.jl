@@ -1,15 +1,18 @@
 module MarketData
 
-using JSON
 using Dates
-using Statistics
 using HTTP
+using JSON
+using Statistics
+using LinearAlgebra
+using JuliaOSBridge
 using DataFrames
 using ..Bridge
 
 export MarketDataPoint, fetch_market_data, fetch_historical, calculate_indicators
 export connect_websocket, subscribe_to_price_updates, get_liquidity_depth
 export get_supported_dexes, get_supported_pairs, PriceListenerCallback
+export calculate_macd, calculate_ema, calculate_rsi, calculate_bollinger_bands, calculate_vwap
 
 # Structure to hold a single market data point with chain information
 struct MarketDataPoint
@@ -493,6 +496,33 @@ function get_supported_pairs(chain::String, dex::String)
     end
     
     return response["data"]
+end
+
+# Add additional market data functionality
+function check_feeds()
+    # Simple implementation that checks if the DEX API endpoints are reachable
+    endpoints = [
+        "https://api.uniswap.org/v2",
+        "https://api.raydium.io/v2",
+        "https://api.orca.so/v1"
+    ]
+    
+    statuses = Dict{String, Bool}()
+    
+    for endpoint in endpoints
+        try
+            response = HTTP.request("GET", endpoint, status_exception=false)
+            statuses[endpoint] = response.status < 400
+        catch
+            statuses[endpoint] = false
+        end
+    end
+    
+    return Dict(
+        "status" => all(values(statuses)) ? "operational" : "degraded",
+        "feeds" => statuses,
+        "timestamp" => now()
+    )
 end
 
 end # module 

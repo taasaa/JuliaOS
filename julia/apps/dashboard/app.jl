@@ -10,6 +10,8 @@ using Plots
 using PlotlyJS
 using JSON
 using DataFrames
+using Printf
+using Statistics
 
 # Export main entry points
 export run_dashboard, start_dashboard, stop_dashboard
@@ -542,6 +544,249 @@ end
 function stop_dashboard()
     Genie.AppServer.shutdown()
     return "Dashboard stopped"
+end
+
+# Dashboard state
+mutable struct DashboardState
+    active_agents::Vector{Dict{String, Any}}
+    market_data::Dict{String, Any}
+    bridge_status::Dict{String, Any}
+    performance_metrics::Dict{String, Any}
+    alerts::Vector{Dict{String, Any}}
+end
+
+const DASHBOARD_STATE = DashboardState(
+    Vector{Dict{String, Any}}(),
+    Dict{String, Any}(),
+    Dict{String, Any}(),
+    Dict{String, Any}(),
+    Vector{Dict{String, Any}}()
+)
+
+# UI Components
+function create_agent_card(agent::Dict{String, Any})
+    status_color = agent["status"] == "Running" ? "success" :
+                  agent["status"] == "Warning" ? "warning" : "error"
+    
+    return [
+        card([
+            h3(agent["name"]),
+            p("Type: $(agent["type"])"),
+            p("Strategy: $(agent["strategy"])"),
+            p("Status: $(agent["status"])", class="text-$(status_color)"),
+            p("Performance: $(agent["performance"])%"),
+            p("Last Update: $(agent["last_update"])")
+        ])
+    ]
+end
+
+function create_market_data_card(pair::String, data::Dict{String, Any})
+    return [
+        card([
+            h3(pair),
+            p("Price: \$$(data["price"])"),
+            p("24h Change: $(data["change_24h"])%"),
+            p("Volume: \$$(data["volume"])"),
+            p("Liquidity: \$$(data["liquidity"])")
+        ])
+    ]
+end
+
+function create_bridge_status_card(status::Dict{String, Any})
+    return [
+        card([
+            h3("Bridge Status"),
+            p("Status: $(status["status"])"),
+            p("Active Chains: $(join(status["active_chains"], ", "))"),
+            p("Pending Transactions: $(status["pending_txs"])"),
+            p("Last Update: $(status["last_update"])")
+        ])
+    ]
+end
+
+function create_performance_metrics_card(metrics::Dict{String, Any})
+    return [
+        card([
+            h3("Performance Metrics"),
+            p("Total Return: $(metrics["total_return"])%"),
+            p("Win Rate: $(metrics["win_rate"])%"),
+            p("Max Drawdown: $(metrics["max_drawdown"])%"),
+            p("Sharpe Ratio: $(metrics["sharpe_ratio"])")
+        ])
+    ]
+end
+
+function create_alerts_card(alerts::Vector{Dict{String, Any}})
+    return [
+        card([
+            h3("Alerts"),
+            ul(map(alert -> li(alert["message"]), alerts))
+        ])
+    ]
+end
+
+# Dashboard layout
+function dashboard_layout()
+    return [
+        row([
+            cell([
+                h1("JuliaOS DeFi Dashboard"),
+                p("Real-time monitoring and control")
+            ])
+        ]),
+        row([
+            cell([
+                h2("Active Agents"),
+                grid(map(agent -> create_agent_card(agent), DASHBOARD_STATE.active_agents)...)
+            ])
+        ]),
+        row([
+            cell([
+                h2("Market Data"),
+                grid(map(pair -> create_market_data_card(pair, DASHBOARD_STATE.market_data[pair]), 
+                    collect(keys(DASHBOARD_STATE.market_data)))...)
+            ])
+        ]),
+        row([
+            cell([
+                h2("Bridge Status"),
+                grid(create_bridge_status_card(DASHBOARD_STATE.bridge_status)...)
+            ])
+        ]),
+        row([
+            cell([
+                h2("Performance Metrics"),
+                grid(create_performance_metrics_card(DASHBOARD_STATE.performance_metrics)...)
+            ])
+        ]),
+        row([
+            cell([
+                h2("Alerts"),
+                grid(create_alerts_card(DASHBOARD_STATE.alerts)...)
+            ])
+        ])
+    ]
+end
+
+# Update functions
+function update_agent_status()
+    agents = get_active_agents()
+    DASHBOARD_STATE.active_agents = map(agent -> Dict(
+        "name" => agent.name,
+        "type" => agent.type,
+        "strategy" => agent.strategy,
+        "status" => get_agent_status(agent),
+        "performance" => agent.performance,
+        "last_update" => agent.last_update
+    ), agents)
+end
+
+function update_market_data()
+    pairs = get_available_pairs()
+    for pair in pairs
+        data = get_market_data(pair)
+        DASHBOARD_STATE.market_data[pair] = data
+    end
+end
+
+function update_bridge_status()
+    if !Bridge.CONNECTION.is_connected
+        Bridge.start_bridge()
+    end
+    
+    DASHBOARD_STATE.bridge_status = Dict(
+        "status" => Bridge.CONNECTION.status,
+        "active_chains" => Bridge.CONNECTION.active_chains,
+        "pending_txs" => length(Bridge.CONNECTION.pending_transactions),
+        "last_update" => Dates.format(now(), "yyyy-mm-dd HH:MM:SS")
+    )
+end
+
+function update_performance_metrics()
+    metrics = calculate_performance_metrics()
+    DASHBOARD_STATE.performance_metrics = metrics
+end
+
+function check_alerts()
+    new_alerts = Vector{Dict{String, Any}}()
+    
+    # Check agent alerts
+    for agent in DASHBOARD_STATE.active_agents
+        if agent["status"] == "Warning"
+            push!(new_alerts, Dict(
+                "message" => "Agent $(agent["name"]) is in warning state",
+                "level" => "warning"
+            ))
+        elseif agent["status"] == "Error"
+            push!(new_alerts, Dict(
+                "message" => "Agent $(agent["name"]) is in error state",
+                "level" => "error"
+            ))
+        end
+    end
+    
+    # Check market alerts
+    for (pair, data) in DASHBOARD_STATE.market_data
+        if abs(data["change_24h"]) > 10
+            push!(new_alerts, Dict(
+                "message" => "High volatility detected for $pair: $(data["change_24h"])%",
+                "level" => "warning"
+            ))
+        end
+    end
+    
+    # Check bridge alerts
+    if DASHBOARD_STATE.bridge_status["pending_txs"] > 5
+        push!(new_alerts, Dict(
+            "message" => "High number of pending bridge transactions",
+            "level" => "warning"
+        ))
+    end
+    
+    DASHBOARD_STATE.alerts = new_alerts
+end
+
+# Dashboard initialization
+function init_dashboard()
+    update_agent_status()
+    update_market_data()
+    update_bridge_status()
+    update_performance_metrics()
+    check_alerts()
+end
+
+# Dashboard update loop
+function update_dashboard()
+    while true
+        update_agent_status()
+        update_market_data()
+        update_bridge_status()
+        update_performance_metrics()
+        check_alerts()
+        sleep(5)  # Update every 5 seconds
+    end
+end
+
+# Main dashboard function
+function run_dashboard(; host="127.0.0.1", port=8000)
+    # Initialize dashboard
+    init_dashboard()
+    
+    # Start update loop in background
+    @async update_dashboard()
+    
+    # Configure Genie
+    Genie.config.run_as_server = true
+    Genie.config.server_host = host
+    Genie.config.server_port = port
+    
+    # Define routes
+    route("/") do
+        html(dashboard_layout())
+    end
+    
+    # Start server
+    Genie.AppServer.startup()
 end
 
 end # module 

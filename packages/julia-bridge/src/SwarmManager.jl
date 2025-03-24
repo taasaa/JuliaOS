@@ -1,10 +1,9 @@
-module SwarmManager
+# Swarm management functionality for JuliaBridge
 
 using Random
 using Statistics
 using JSON
 using Dates
-using ..MarketData
 
 export SwarmConfig, Particle, Swarm, create_swarm, start_swarm!, stop_swarm!, save_swarm, load_swarm, generate_signals, execute_trade, calculate_fitness, update_velocity!, update_position!, calculate_sharpe_ratio, calculate_max_drawdown, update_performance_metrics!
 
@@ -389,6 +388,4 @@ function load_swarm(filename::String)
     swarm.performance_metrics = data["performance_metrics"]
     
     return swarm
-end
-
-end # module 
+end 

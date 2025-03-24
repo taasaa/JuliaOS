@@ -27,10 +27,25 @@ secrets.json
 credentials.json
 *-wallet.json
 wallet.json
+solana-wallet.json
 *-keypair.json
 *.pem
 *.key
 *.cert
+**/config/*.env
+**/config/*.json
+!**/config/default_config.json
+!**/config/test_config.json
+
+# API Keys and Tokens
+**/*/apikey*
+**/*/token*
+**/*_token*
+**/*_key*
+**/*_secret*
+**/*_passphrase*
+**/*_mnemonic*
+**/*_seed*
 
 # IDE and Editor
 .vscode/
@@ -59,6 +74,8 @@ Thumbs.db
 /julia/artifacts/
 /julia/compiled/
 /julia/logs/
+Manifest.toml
+**/*/Manifest.toml
 
 # Package Manager
 package-lock.json
@@ -77,4 +94,133 @@ pnpm-lock.yaml
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.debug/ 
+.debug/
+
+# DeFi Specific
+config/production.json
+config/*.key
+config/*.secret
+config/*.pem
+config/*.env
+config/*.json
+!config/test_config.json
+!config/default_config.json
+
+# Blockchain Specific
+.ethereum/
+.solana/
+.chain/
+*.chain
+*.wallet
+*.keystore
+*.keypair
+*.mnemonic
+*.seed
+*.private
+*.public
+
+# Market Data
+data/market/
+data/price/
+data/volume/
+data/historical/
+data/indicators/
+data/analysis/
+
+# Logs and Monitoring
+logs/
+monitoring/
+metrics/
+*.log.*
+*.log
+!test/logs/
+
+# Backup and Recovery
+backup/
+recovery/
+*.bak
+*.backup
+*.recovery
+*.restore
+
+# Test Data
+test/data/
+test/backup/
+test/logs/
+!test/test_config.json
+
+# Documentation
+docs/_build/
+docs/_static/
+docs/_templates/
+docs/_themes/
+
+# Local Development
+local/
+dev/
+development/
+*.local
+*.dev
+*.development
+
+# Security
+*.p12
+*.pfx
+*.key
+*.crt
+*.csr
+*.srl
+*.pem
+*.der
+*.priv
+*.pub
+*.sig
+*.sign
+*.token
+*.auth
+*.authz
+*.cert
+*.certificate
+*.chain
+*.chain.cert
+*.chain.key
+*.chain.pem
+*.chain.der
+*.chain.p12
+*.chain.pfx
+*.chain.csr
+*.chain.srl
+*.chain.token
+*.chain.auth
+*.chain.authz
+*.chain.certificate
+*.chain.chain
+*.chain.chain.cert
+*.chain.chain.key
+*.chain.chain.pem
+*.chain.chain.der
+*.chain.chain.p12
+*.chain.chain.pfx
+*.chain.chain.csr
+*.chain.chain.srl
+*.chain.chain.token
+*.chain.chain.auth
+*.chain.chain.authz
+*.chain.chain.certificate
+*.chain.chain.chain
+*.chain.chain.chain.cert
+*.chain.chain.chain.key
+*.chain.chain.chain.pem
+*.chain.chain.chain.der
+*.chain.chain.chain.p12
+*.chain.chain.chain.pfx
+*.chain.chain.chain.csr
+*.chain.chain.chain.srl
+*.chain.chain.chain.token
+*.chain.chain.chain.auth
+*.chain.chain.chain.authz
+*.chain.chain.chain.certificate
+*.chain.chain.chain.chain
+
+# Command-specific files
+command.txt 

@@ -1,6 +1,10 @@
 import { ethers } from 'ethers';
 import { ChainId, ChainService, DEXService } from './types';
 import { getChainConfig } from './config';
+import { Connection, Keypair, PublicKey, Transaction } from '@solana/web3.js';
+import { AnchorProvider } from '@solana/anchor';
+import { Program } from '@solana/anchor';
+import { getAssociatedTokenAddress } from '@solana/spl-token';
 
 export interface CrossChainPosition {
   chainId: ChainId;
@@ -214,8 +218,87 @@ export class CrossChainService {
   }
 
   private async createSolanaChainService(config: any): Promise<ChainService> {
-    // Implementation for Solana
-    throw new Error('Not implemented');
+    const connection = new Connection(config.rpcUrl, config.commitment || 'confirmed');
+    const wallet = Keypair.fromSecretKey(
+      Buffer.from(JSON.parse(config.privateKey))
+    );
+
+    const provider = new AnchorProvider(
+      connection,
+      {
+        publicKey: wallet.publicKey,
+        signTransaction: async (tx) => {
+          tx.partialSign(wallet);
+          return tx;
+        },
+        signAllTransactions: async (txs) => {
+          txs.forEach(tx => tx.partialSign(wallet));
+          return txs;
+        }
+      },
+      { commitment: config.commitment || 'confirmed' }
+    );
+
+    // Initialize program with minimal IDL
+    const program = new Program(
+      {
+        version: "0.1.0",
+        name: "julia_bridge",
+        instructions: [],
+        accounts: [],
+        types: [],
+        events: [],
+        errors: []
+      },
+      new PublicKey(config.programId),
+      provider
+    );
+
+    return {
+      getRPCUrl: () => config.rpcUrl,
+      getChainId: () => 'solana',
+      getWallet: () => wallet,
+      getProvider: () => provider,
+      getProgram: () => program,
+      getConnection: () => connection,
+      signTransaction: async (tx: Transaction) => {
+        tx.partialSign(wallet);
+        return tx;
+      },
+      signAllTransactions: async (txs: Transaction[]) => {
+        txs.forEach(tx => tx.partialSign(wallet));
+        return txs;
+      },
+      sendTransaction: async (tx: Transaction) => {
+        const signature = await connection.sendTransaction(tx, [wallet]);
+        await connection.confirmTransaction(signature, 'confirmed');
+        return signature;
+      },
+      getBalance: async () => {
+        const balance = await connection.getBalance(wallet.publicKey);
+        return balance.toString();
+      },
+      getTokenBalance: async (tokenMint: string) => {
+        const tokenAccount = await getAssociatedTokenAddress(
+          new PublicKey(tokenMint),
+          wallet.publicKey
+        );
+        const balance = await connection.getTokenAccountBalance(tokenAccount);
+        return balance.value.amount;
+      },
+      getBlockNumber: async () => {
+        const slot = await connection.getSlot();
+        return slot;
+      },
+      getGasPrice: async () => {
+        // Solana doesn't have gas price, return 0
+        return '0';
+      },
+      estimateGas: async () => {
+        // Solana doesn't have gas estimation, return 0
+        return '0';
+      }
+    };
   }
 
   private async createUniswapService(chainService: ChainService): Promise<DEXService> {

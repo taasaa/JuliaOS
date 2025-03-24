@@ -1,33 +1,47 @@
 {
-  "name": "juliaos-cli",
+  "name": "@juliaos/cli",
   "version": "0.1.0",
-  "description": "Command-line interface for JuliaOS Framework",
-  "main": "src/cli.js",
+  "description": "JuliaOS Framework CLI",
+  "main": "dist/index.js",
   "bin": {
-    "j3os": "./src/cli.js"
+    "j3os": "dist/cli.js"
   },
-  "files": [
-    "src",
-    "README.md"
-  ],
   "scripts": {
-    "test": "jest"
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "commander": "^11.1.0",
-    "inquirer": "^8.2.6",
+    "commander": "^11.0.0",
+    "inquirer": "^8.2.5",
     "chalk": "^4.1.2",
-    "ora": "^5.4.1",
-    "conf": "^10.2.0",
-    "fs-extra": "^11.2.0"
+    "fs-extra": "^11.1.1",
+    "axios": "^1.5.0",
+    "cli-table3": "^0.6.3",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.1.6",
+    "@types/node": "^20.4.5",
+    "@types/inquirer": "^8.2.0",
+    "@types/fs-extra": "^11.0.1",
+    "@types/cli-table3": "^0.3.0"
+  },
+  "files": [
+    "dist",
+    "templates"
+  ],
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/juliaos/framework.git"
   },
   "keywords": [
-    "cli",
     "juliaos",
-    "ai",
-    "agents",
-    "framework"
+    "cli"
   ],
-  "author": "JuliaOS",
+  "author": "JuliaOS Team",
   "license": "MIT"
 } 

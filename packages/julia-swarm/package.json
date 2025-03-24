@@ -24,6 +24,7 @@
   "author": "JuliaOS Team",
   "license": "MIT",
   "dependencies": {
+    "@juliaos/core": "^0.1.0",
     "@solana/web3.js": "^1.87.6",
     "@solana/spl-token": "^0.3.9",
     "ethers": "^6.9.0",

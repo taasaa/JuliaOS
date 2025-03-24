@@ -7,8 +7,11 @@ using JuliaOS
 using JuliaOS.SwarmManager
 using JuliaOS.MarketData
 using JuliaOS.Bridge
+using JuliaOS.CLI.Interactive
 using Dates
 using JSON
+using Printf
+using Crayons
 
 # Import dashboard module
 include("dashboard/app.jl")
@@ -24,6 +27,9 @@ function parse_commandline()
     )
 
     @add_arg_table! s begin
+        "interactive"
+            help = "Launch interactive mode"
+            action = :command
         "dashboard"
             help = "Launch the DeFi trading dashboard web interface"
             action = :command
@@ -57,89 +63,56 @@ function parse_commandline()
 
     # Sub-commands for backtest
     @add_arg_table! s["backtest"] begin
-        "--algorithm", "-a"
-            help = "Swarm algorithm to use (pso, gwo, woa, genetic, aco)"
-            default = "pso"
-        "--chain", "-c"
-            help = "Blockchain to use (ethereum, solana, etc.)"
-            default = "ethereum"
-        "--dex", "-d"
-            help = "DEX to use (uniswap-v3, sushiswap, etc.)"
-            default = "uniswap-v3"
-        "--pair", "-p"
-            help = "Trading pair (e.g., ETH/USDC)"
-            default = "ETH/USDC"
-        "--days", "-D"
-            help = "Number of days of historical data to use"
-            arg_type = Int
-            default = 30
-        "--swarm-size", "-s"
-            help = "Size of the swarm"
-            arg_type = Int
-            default = 100
-        "--output", "-o"
-            help = "Output file for backtest results (JSON)"
-            default = "backtest_results.json"
-        "--demo", "-m"
-            help = "Run in demo mode with synthetic data"
-            action = :store_true
+        "--strategy", "-s"
+            help = "Trading strategy to backtest"
+            required = true
+        "--start-date"
+            help = "Start date for backtest (YYYY-MM-DD)"
+            required = true
+        "--end-date"
+            help = "End date for backtest (YYYY-MM-DD)"
+            required = true
+        "--initial-capital"
+            help = "Initial capital for backtest"
+            arg_type = Float64
+            default = 10000.0
+        "--pairs"
+            help = "Trading pairs to backtest"
+            nargs = '+'
+            required = true
     end
 
     # Sub-commands for optimize
     @add_arg_table! s["optimize"] begin
         "--algorithm", "-a"
-            help = "Swarm algorithm to use (pso, gwo, woa, genetic, aco)"
+            help = "Optimization algorithm to use"
             default = "pso"
-        "--chain", "-c"
-            help = "Blockchain to use (ethereum, solana, etc.)"
-            default = "ethereum"
-        "--dex", "-d"
-            help = "DEX to use (uniswap-v3, sushiswap, etc.)"
-            default = "uniswap-v3"
-        "--pair", "-p"
-            help = "Trading pair (e.g., ETH/USDC)"
-            default = "ETH/USDC"
-        "--days", "-D"
-            help = "Number of days of historical data to use"
-            arg_type = Int
-            default = 30
-        "--swarm-size", "-s"
-            help = "Size of the swarm"
+        "--iterations", "-i"
+            help = "Number of iterations"
             arg_type = Int
             default = 100
-        "--iterations", "-i"
-            help = "Number of iterations to run"
+        "--population-size", "-p"
+            help = "Population size for optimization"
             arg_type = Int
-            default = 20
-        "--output", "-o"
-            help = "Output file for optimization results (JSON)"
-            default = "optimize_results.json"
-        "--demo", "-m"
-            help = "Run in demo mode with synthetic data"
-            action = :store_true
+            default = 50
+        "--parameters"
+            help = "Parameters to optimize"
+            nargs = '+'
+            required = true
     end
 
     # Sub-commands for market
     @add_arg_table! s["market"] begin
-        "--chain", "-c"
-            help = "Blockchain to use (ethereum, solana, etc.)"
-            default = "ethereum"
-        "--dex", "-d"
-            help = "DEX to use (uniswap-v3, sushiswap, etc.)"
-            default = "uniswap-v3"
         "--pair", "-p"
-            help = "Trading pair (e.g., ETH/USDC)"
-            default = "ETH/USDC"
-        "--days", "-D"
-            help = "Number of days of historical data to fetch"
+            help = "Trading pair to get data for"
+            required = true
+        "--timeframe"
+            help = "Timeframe for market data"
+            default = "1h"
+        "--limit"
+            help = "Number of data points to fetch"
             arg_type = Int
-            default = 7
-        "--output", "-o"
-            help = "Output file for market data (JSON or CSV)"
-            default = "market_data.json"
-        "--demo", "-m"
-            help = "Run in demo mode with synthetic data"
-            action = :store_true
+            default = 100
     end
 
     # Sub-commands for scaffold
@@ -148,11 +121,8 @@ function parse_commandline()
             help = "Name of the project"
             required = true
         "--type", "-t"
-            help = "Project type (web, cli, library)"
-            default = "web"
-        "--directory", "-d"
-            help = "Directory to create the project in"
-            default = "."
+            help = "Type of project to create"
+            default = "agent"
     end
 
     return parse_args(s)
@@ -168,14 +138,11 @@ end
 
 function cmd_backtest(args)
     println("Running backtest with the following parameters:")
-    println("  Algorithm: $(args["algorithm"])")
-    println("  Chain: $(args["chain"])")
-    println("  DEX: $(args["dex"])")
-    println("  Pair: $(args["pair"])")
-    println("  Days: $(args["days"])")
-    println("  Swarm Size: $(args["swarm-size"])")
-    println("  Output: $(args["output"])")
-    println("  Demo mode: $(args["demo"])")
+    println("  Strategy: $(args["strategy"])")
+    println("  Start Date: $(args["start-date"])")
+    println("  End Date: $(args["end-date"])")
+    println("  Initial Capital: $(args["initial-capital"])")
+    println("  Pairs: $(args["pairs"])")
     
     # Create swarm configuration
     algo_params = Dict{String, Any}(
@@ -186,34 +153,29 @@ function cmd_backtest(args)
     
     swarm_config = SwarmManager.SwarmConfig(
         "backtest_swarm",
-        args["swarm-size"],
-        args["algorithm"],
-        [args["pair"]],
+        100,
+        "pso",
+        args["pairs"],
         algo_params
     )
     
     # Get historical data
     historical_data = Vector{MarketData.MarketDataPoint}()
     
-    if args["demo"]
-        println("Using synthetic data for demo mode...")
-        historical_data = DeFiDashboard.generate_synthetic_data(args["pair"], args["days"])
-    else
-        println("Fetching historical data...")
-        if !Bridge.CONNECTION.is_connected
-            Bridge.start_bridge()
-        end
-        
-        historical_data = MarketData.fetch_historical(
-            args["chain"], args["dex"], args["pair"];
-            days=args["days"], interval="1h"
-        )
+    println("Fetching historical data...")
+    if !Bridge.CONNECTION.is_connected
+        Bridge.start_bridge()
     end
+    
+    historical_data = MarketData.fetch_historical(
+        "ethereum", "uniswap-v3", args["pair"];
+        days=args["limit"], interval=args["timeframe"]
+    )
     
     println("Creating and initializing swarm...")
     
     # Create and initialize swarm
-    swarm = SwarmManager.create_swarm(swarm_config, args["chain"], args["dex"])
+    swarm = SwarmManager.create_swarm(swarm_config, "ethereum", "uniswap-v3")
     SwarmManager.start_swarm!(swarm, historical_data)
     
     println("Creating trading strategy...")
@@ -266,42 +228,32 @@ function cmd_backtest(args)
     println("  Take Profit: $(round(result["optimized_parameters"]["take_profit"], digits=2))%")
     
     # Save results to file
-    open(args["output"], "w") do io
+    open("backtest_results.json", "w") do io
         JSON.print(io, result, 4)
     end
     
-    println("\nResults saved to $(args["output"])")
+    println("\nResults saved to backtest_results.json")
 end
 
 function cmd_optimize(args)
     println("Optimizing trading parameters with the following settings:")
     println("  Algorithm: $(args["algorithm"])")
-    println("  Chain: $(args["chain"])")
-    println("  DEX: $(args["dex"])")
-    println("  Pair: $(args["pair"])")
-    println("  Days: $(args["days"])")
-    println("  Swarm Size: $(args["swarm-size"])")
     println("  Iterations: $(args["iterations"])")
-    println("  Output: $(args["output"])")
-    println("  Demo mode: $(args["demo"])")
+    println("  Population Size: $(args["population-size"])")
+    println("  Parameters: $(args["parameters"])")
     
     # Get historical data
     historical_data = Vector{MarketData.MarketDataPoint}()
     
-    if args["demo"]
-        println("Using synthetic data for demo mode...")
-        historical_data = DeFiDashboard.generate_synthetic_data(args["pair"], args["days"])
-    else
-        println("Fetching historical data...")
-        if !Bridge.CONNECTION.is_connected
-            Bridge.start_bridge()
-        end
-        
-        historical_data = MarketData.fetch_historical(
-            args["chain"], args["dex"], args["pair"];
-            days=args["days"], interval="1h"
-        )
+    println("Fetching historical data...")
+    if !Bridge.CONNECTION.is_connected
+        Bridge.start_bridge()
     end
+    
+    historical_data = MarketData.fetch_historical(
+        "ethereum", "uniswap-v3", args["pair"];
+        days=args["limit"], interval="1h"
+    )
     
     # Run optimization with multiple algorithm configurations
     results = Dict{String, Any}()
@@ -324,14 +276,14 @@ function cmd_optimize(args)
         
         swarm_config = SwarmManager.SwarmConfig(
             "$(algorithm)_swarm",
-            args["swarm-size"],
+            args["population-size"],
             algorithm,
             [args["pair"]],
             algo_params
         )
         
         # Create and initialize swarm
-        swarm = SwarmManager.create_swarm(swarm_config, args["chain"], args["dex"])
+        swarm = SwarmManager.create_swarm(swarm_config, "ethereum", "uniswap-v3")
         SwarmManager.start_swarm!(swarm, historical_data)
         
         # Run iterations
@@ -405,11 +357,11 @@ function cmd_optimize(args)
     end
     
     # Save results to file
-    open(args["output"], "w") do io
+    open("optimize_results.json", "w") do io
         JSON.print(io, output_results, 4)
     end
     
-    println("\nResults saved to $(args["output"])")
+    println("\nResults saved to optimize_results.json")
 end
 
 function cmd_info()
@@ -449,30 +401,22 @@ end
 
 function cmd_market(args)
     println("Fetching market data with the following parameters:")
-    println("  Chain: $(args["chain"])")
-    println("  DEX: $(args["dex"])")
     println("  Pair: $(args["pair"])")
-    println("  Days: $(args["days"])")
-    println("  Output: $(args["output"])")
-    println("  Demo mode: $(args["demo"])")
+    println("  Timeframe: $(args["timeframe"])")
+    println("  Limit: $(args["limit"])")
     
     # Get historical data
     historical_data = Vector{MarketData.MarketDataPoint}()
     
-    if args["demo"]
-        println("Using synthetic data for demo mode...")
-        historical_data = DeFiDashboard.generate_synthetic_data(args["pair"], args["days"])
-    else
-        println("Fetching historical data...")
-        if !Bridge.CONNECTION.is_connected
-            Bridge.start_bridge()
-        end
-        
-        historical_data = MarketData.fetch_historical(
-            args["chain"], args["dex"], args["pair"];
-            days=args["days"], interval="1h"
-        )
+    println("Fetching historical data...")
+    if !Bridge.CONNECTION.is_connected
+        Bridge.start_bridge()
     end
+    
+    historical_data = MarketData.fetch_historical(
+        "ethereum", "uniswap-v3", args["pair"];
+        days=args["limit"], interval=args["timeframe"]
+    )
     
     # Format data for output
     formatted_data = []
@@ -491,16 +435,16 @@ function cmd_market(args)
     end
     
     # Save to file
-    output_ext = lowercase(split(args["output"], ".")[end])
+    output_ext = lowercase(split("market_data.json", ".")[end])
     
     if output_ext == "json"
         # Save as JSON
-        open(args["output"], "w") do io
+        open("market_data.json", "w") do io
             JSON.print(io, formatted_data, 4)
         end
     elseif output_ext == "csv"
         # Save as CSV
-        open(args["output"], "w") do io
+        open("market_data.csv", "w") do io
             # Write header
             println(io, "timestamp,chain,dex,pair,price,volume,liquidity,rsi,sma_20,sma_50")
             
@@ -516,7 +460,7 @@ function cmd_market(args)
         end
     else
         # Default to JSON
-        open("$(split(args["output"], ".")[1]).json", "w") do io
+        open("$(split("market_data.json", ".")[1]).json", "w") do io
             JSON.print(io, formatted_data, 4)
         end
     end
@@ -527,17 +471,16 @@ function cmd_market(args)
     println("  Date Range: $(Dates.format(historical_data[1].timestamp, "yyyy-mm-dd")) to $(Dates.format(historical_data[end].timestamp, "yyyy-mm-dd"))")
     println("  Price Range: \$$(round(minimum([p.price for p in historical_data]), digits=2)) to \$$(round(maximum([p.price for p in historical_data]), digits=2))")
     println("  Average Volume: \$$(round(mean([p.volume for p in historical_data]), digits=2))")
-    println("\nData saved to $(args["output"])")
+    println("\nData saved to market_data.json")
 end
 
 function cmd_scaffold(args)
     println("Scaffolding new project with the following parameters:")
     println("  Name: $(args["name"])")
     println("  Type: $(args["type"])")
-    println("  Directory: $(args["directory"])")
     
     # Create project directory
-    project_dir = joinpath(args["directory"], args["name"])
+    project_dir = joinpath(".", args["name"])
     
     if isdir(project_dir)
         println("Error: Directory already exists: $project_dir")
@@ -703,25 +646,34 @@ function cmd_scaffold(args)
 end
 
 function main()
-    args = parse_commandline()
-
-    if isempty(args)
-        println("No command specified. Use --help to see available commands.")
-        return
-    end
-
-    if args["%COMMAND%"] == "dashboard"
-        cmd_dashboard(args["dashboard"])
-    elseif args["%COMMAND%"] == "backtest"
-        cmd_backtest(args["backtest"])
-    elseif args["%COMMAND%"] == "optimize"
-        cmd_optimize(args["optimize"])
-    elseif args["%COMMAND%"] == "info"
-        cmd_info()
-    elseif args["%COMMAND%"] == "market"
-        cmd_market(args["market"])
-    elseif args["%COMMAND%"] == "scaffold"
-        cmd_scaffold(args["scaffold"])
+    try
+        args = parse_commandline()
+        
+        if args["%COMMAND%"] == "interactive"
+            Interactive.start_interactive_mode()
+        elseif args["%COMMAND%"] == "dashboard"
+            cmd_dashboard(args["dashboard"])
+        elseif args["%COMMAND%"] == "backtest"
+            cmd_backtest(args["backtest"])
+        elseif args["%COMMAND%"] == "optimize"
+            cmd_optimize(args["optimize"])
+        elseif args["%COMMAND%"] == "info"
+            cmd_info()
+        elseif args["%COMMAND%"] == "market"
+            cmd_market(args["market"])
+        elseif args["%COMMAND%"] == "scaffold"
+            cmd_scaffold(args["scaffold"])
+        end
+    catch e
+        if isa(e, ArgParseError)
+            println(Crayon(foreground = :red), "Error: ", e.msg, Crayon(reset = true))
+            println("\nRun 'juliaos --help' for usage information.")
+        else
+            println(Crayon(foreground = :red), "Error: ", e, Crayon(reset = true))
+            println(Crayon(foreground = :yellow), "\nStacktrace:", Crayon(reset = true))
+            println(catch_backtrace())
+        end
+        exit(1)
     end
 end
 

@@ -4,33 +4,59 @@ import { Command } from 'commander';
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import chalk from 'chalk';
+import { registerDefiCommand } from './commands/defi';
+import { registerJuliaCommand } from './commands/julia';
+import { registerMonitorCommand } from './commands/monitor';
+
+/**
+ * JuliaOS CLI - Main entry point
+ * Version: 0.1.0
+ */
 
 // Define the program
 const program = new Command();
 
+// Setup main program info
 program
-  .name('juliaos')
+  .name('j3os')
   .description('JuliaOS Framework CLI - Create and manage AI-powered trading agents and swarms')
-  .version('0.1.0');
+  .version('0.1.0')
+  .addHelpText('after', `
+Examples:
+  $ j3os init --name my-defi-project
+  $ j3os defi create-swarm
+  $ j3os julia bridge --start
+  $ j3os monitor trade-performance
+  `);
 
-// Initialize command
+// Register all command groups with consistent naming and structure
+registerDefiCommand(program);
+registerJuliaCommand(program);
+registerMonitorCommand(program);
+
+// Global project initialization command
 program
   .command('init')
   .description('Initialize a new JuliaOS project')
   .option('-n, --name <name>', 'Name of the project')
+  .option('-t, --template <template>', 'Project template (default: basic)', 'basic')
+  .option('-d, --directory <directory>', 'Target directory (default: current directory)')
   .action(async (options) => {
     const projectName = options.name || 'juliaos-project';
-    console.log(chalk.blue(`Creating a new JuliaOS project: ${projectName}`));
+    const targetDir = options.directory || projectName;
+    const template = options.template;
+    
+    console.log(chalk.blue(`Creating a new JuliaOS project: ${projectName} (${template} template)`));
     
     try {
       // Create project directory
-      await fs.ensureDir(projectName);
+      await fs.ensureDir(targetDir);
       
       // Create basic structure
-      await fs.ensureDir(path.join(projectName, 'src'));
-      await fs.ensureDir(path.join(projectName, 'src', 'agents'));
-      await fs.ensureDir(path.join(projectName, 'src', 'skills'));
-      await fs.ensureDir(path.join(projectName, 'test'));
+      await fs.ensureDir(path.join(targetDir, 'src'));
+      await fs.ensureDir(path.join(targetDir, 'src', 'agents'));
+      await fs.ensureDir(path.join(targetDir, 'src', 'skills'));
+      await fs.ensureDir(path.join(targetDir, 'test'));
       
       // Create package.json
       const packageJson = {
@@ -53,7 +79,7 @@ program
         }
       };
       
-      await fs.writeJSON(path.join(projectName, 'package.json'), packageJson, { spaces: 2 });
+      await fs.writeJSON(path.join(targetDir, 'package.json'), packageJson, { spaces: 2 });
       
       // Create tsconfig.json
       const tsconfig = {
@@ -69,15 +95,15 @@ program
         include: ['src/**/*']
       };
       
-      await fs.writeJSON(path.join(projectName, 'tsconfig.json'), tsconfig, { spaces: 2 });
+      await fs.writeJSON(path.join(targetDir, 'tsconfig.json'), tsconfig, { spaces: 2 });
       
       // Create README.md
       const readme = `# ${projectName}\n\nA JuliaOS Framework project\n\n## Getting Started\n\n\`\`\`bash\nnpm install\nnpm run build\nnpm start\n\`\`\`\n`;
-      await fs.writeFile(path.join(projectName, 'README.md'), readme);
+      await fs.writeFile(path.join(targetDir, 'README.md'), readme);
       
       // Create .gitignore
       const gitignore = `node_modules/\ndist/\n.env\n.DS_Store\n`;
-      await fs.writeFile(path.join(projectName, '.gitignore'), gitignore);
+      await fs.writeFile(path.join(targetDir, '.gitignore'), gitignore);
       
       // Create sample agent
       const sampleAgent = `import { EventEmitter } from 'events';
@@ -113,7 +139,7 @@ export class SampleAgent extends EventEmitter {
 }
 `;
       
-      await fs.writeFile(path.join(projectName, 'src', 'agents', 'SampleAgent.ts'), sampleAgent);
+      await fs.writeFile(path.join(targetDir, 'src', 'agents', 'SampleAgent.ts'), sampleAgent);
       
       // Create main index.ts
       const mainIndex = `import { SampleAgent } from './agents/SampleAgent';
@@ -147,60 +173,35 @@ async function main() {
 main().catch(console.error);
 `;
       
-      await fs.writeFile(path.join(projectName, 'src', 'index.ts'), mainIndex);
+      await fs.writeFile(path.join(targetDir, 'src', 'index.ts'), mainIndex);
       
-      console.log(chalk.green('Project created successfully!'));
-      console.log(chalk.white(`\nTo get started, run:\n`));
-      console.log(chalk.cyan(`  cd ${projectName}`));
-      console.log(chalk.cyan(`  npm install`));
-      console.log(chalk.cyan(`  npm run build`));
-      console.log(chalk.cyan(`  npm start`));
-      
-    } catch (error) {
-      console.error(chalk.red('Failed to create project:'), error);
-      process.exit(1);
+      console.log(chalk.green(`Project "${projectName}" created successfully in ${targetDir}`));
+      console.log(chalk.blue(`
+Next steps:
+  cd ${targetDir}
+  npm install
+  npm run build
+  npm start
+      `));
+    } catch (error: any) {
+      console.error(chalk.red(`Error creating project: ${error.message}`));
     }
   });
 
-// Command to create a new agent
-program
-  .command('create')
-  .description('Create a new component (agent, skill, connector)')
-  .option('-t, --type <type>', 'Type of component (agent, skill, connector)')
-  .option('-n, --name <name>', 'Name of the component')
-  .action((options) => {
-    if (!options.type) {
-      console.error(chalk.red('Error: Component type is required'));
-      console.log(chalk.white('Usage: juliaos create -t <type> -n <name>'));
-      console.log(chalk.white('Types: agent, skill, connector'));
-      process.exit(1);
-    }
-
-    if (!options.name) {
-      console.error(chalk.red('Error: Component name is required'));
-      console.log(chalk.white('Usage: juliaos create -t <type> -n <name>'));
-      process.exit(1);
-    }
-
-    console.log(chalk.green(`Creating a new ${options.type}: ${options.name}`));
-    console.log(chalk.yellow('This feature is coming soon!'));
-  });
-
-// Version command
+// Global utility commands
 program
   .command('version')
-  .description('Print the CLI version')
+  .description('Display version information')
   .action(() => {
-    console.log(`JuliaOS CLI Version: 0.1.0`);
+    console.log(`JuliaOS CLI version: 0.1.0`);
   });
 
-// Help command 
 program
-  .command('help')
-  .description('Display help information')
+  .command('help-all')
+  .description('Display detailed help for all commands')
   .action(() => {
-    program.outputHelp();
+    program.help();
   });
 
-// Parse command-line arguments
-program.parse(); 
+// Parse arguments
+program.parse(process.argv); 
