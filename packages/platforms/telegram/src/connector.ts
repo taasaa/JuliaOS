@@ -1,22 +1,24 @@
 import { Telegraf, Context } from 'telegraf';
 import { Update, Message } from 'telegraf/types';
-import { EventEmitter } from 'events';
+import { Platform, PlatformConfig, MessageData } from '@juliaos/core';
 
-interface TelegramConfig {
-  token: string;
-  commandPrefix: string;
+export interface TelegramConfig extends PlatformConfig {
+  parameters: {
+    token: string;
+    commandPrefix: string;
+  };
 }
 
-export class TelegramConnector extends EventEmitter {
+export class TelegramConnector extends Platform {
   private bot: Telegraf;
-  private config: TelegramConfig;
-  private _isConnected: boolean = false;
+  private commandPrefix: string;
 
   constructor(config: TelegramConfig) {
-    super();
-    this.config = config;
-    console.log('Initializing Telegram bot with token:', config.token.slice(0, 10) + '...');
-    this.bot = new Telegraf(config.token);
+    super(config);
+    this.commandPrefix = config.parameters.commandPrefix;
+    
+    console.log('Initializing Telegram bot with token:', config.parameters.token.slice(0, 10) + '...');
+    this.bot = new Telegraf(config.parameters.token);
     
     // Set up error handling
     this.bot.catch((err: any) => {
@@ -29,127 +31,97 @@ export class TelegramConnector extends EventEmitter {
       }
       this.emit('error', err);
     });
+    
+    this.setupMessageHandlers();
   }
 
   async connect(): Promise<void> {
-    if (this._isConnected) {
-      return;
-    }
-
     try {
-      console.log('Setting up Telegram message handlers...');
-      
-      // Set up message handlers
-      this.bot.on('text', async (ctx) => {
-        const msg = ctx.message;
-        console.log('Received Telegram message:', {
-          text: msg.text,
-          from: msg.from?.username,
-          chatId: msg.chat.id
-        });
-        
-        // Handle commands
-        if (msg.text.startsWith(this.config.commandPrefix)) {
-          const command = msg.text.slice(this.config.commandPrefix.length);
-          this.emit('command', {
-            command,
-            content: msg.text,
-            chatId: msg.chat.id.toString(),
-            sender: msg.from?.username || 'unknown',
-            ctx: ctx // Pass the context to allow direct replies
-          });
-          return;
-        }
-
-        // Handle regular messages
-        this.emit('message', {
-          content: msg.text,
-          chatId: msg.chat.id.toString(),
-          sender: msg.from?.username || 'unknown',
-          ctx: ctx // Pass the context to allow direct replies
-        });
-
-        // Immediately reply using context
-        try {
-          await ctx.reply(`Echo: ${msg.text}`);
-          console.log('Immediate reply sent successfully');
-        } catch (error) {
-          console.error('Error sending immediate reply:', error);
-        }
-      });
-
-      // Test bot info
-      console.log('Fetching bot information...');
-      const botInfo = await this.bot.telegram.getMe();
-      console.log('Bot info:', {
-        id: botInfo.id,
-        username: botInfo.username,
-        firstName: botInfo.first_name
-      });
-
-      // Start the bot
-      console.log('Starting Telegram bot...');
+      // Initialize bot webhook or polling
       await this.bot.launch();
-      console.log('Connected to Telegram successfully');
-      this._isConnected = true;
-
-      // Enable graceful stop
-      process.once('SIGINT', () => this.disconnect());
-      process.once('SIGTERM', () => this.disconnect());
+      this.setConnected(true);
+      console.log(`Telegram connector ${this.name} connected successfully`);
     } catch (error) {
       console.error('Failed to connect to Telegram:', error);
-      if (error instanceof Error) {
-        console.error('Error details:', {
-          name: error.name,
-          message: error.message,
-          stack: error.stack
-        });
-      }
+      this.emit('error', error);
       throw error;
     }
   }
 
   async disconnect(): Promise<void> {
-    if (!this._isConnected) {
-      return;
-    }
-
     try {
-      console.log('Stopping Telegram bot...');
+      // Stop the bot
       await this.bot.stop();
-      this._isConnected = false;
-      console.log('Disconnected from Telegram successfully');
+      this.setConnected(false);
+      console.log(`Telegram connector ${this.name} disconnected`);
     } catch (error) {
-      console.error('Error disconnecting from Telegram:', error);
+      console.error('Failed to disconnect from Telegram:', error);
+      this.emit('error', error);
       throw error;
     }
   }
 
-  async sendMessage(content: string, chatId: string): Promise<void> {
-    if (!this._isConnected) {
-      throw new Error('Bot is not connected');
+  async start(): Promise<void> {
+    if (!this.isActive()) {
+      await this.connect();
     }
+  }
 
+  async stop(): Promise<void> {
+    if (this.isActive()) {
+      await this.disconnect();
+    }
+  }
+
+  async sendMessage(message: string, chatId: string): Promise<void> {
     try {
-      console.log('Sending Telegram message:', {
-        chatId,
-        contentLength: content.length
-      });
-      await this.bot.telegram.sendMessage(chatId, content);
-      console.log('Message sent successfully');
+      await this.bot.telegram.sendMessage(chatId, message);
     } catch (error) {
       console.error('Failed to send Telegram message:', error);
-      if (error instanceof Error) {
-        console.error('Error details:', {
-          name: error.name,
-          message: error.message
-        });
-      }
+      this.emit('error', error);
       throw error;
     }
   }
 
-  get isConnected(): boolean {
-    return this._isConnected;
+  private setupMessageHandlers(): void {
+    // Handle text messages
+    this.bot.on('text', async (ctx: Context) => {
+      const msg = ctx.message as Message.TextMessage;
+      console.log('Received Telegram message:', {
+        text: msg.text,
+        from: msg.from?.username,
+        chatId: msg.chat.id
+      });
+      
+      // Handle commands
+      if (msg.text.startsWith(this.commandPrefix)) {
+        const commandContent = msg.text.slice(this.commandPrefix.length).trim();
+        const commandParts = commandContent.split(/\s+/);
+        const command = commandParts[0];
+        const args = commandParts.slice(1);
+        
+        this.emit('command', {
+          command,
+          args,
+          content: commandContent,
+          sender: msg.from?.id.toString() || 'unknown',
+          senderName: msg.from?.username || 'unknown',
+          chatId: msg.chat.id.toString(),
+          timestamp: new Date(msg.date * 1000)
+        });
+        
+        return;
+      }
+
+      // Handle regular messages
+      const messageData: MessageData = {
+        content: msg.text,
+        sender: msg.from?.id.toString() || 'unknown',
+        chatId: msg.chat.id.toString(),
+        timestamp: new Date(msg.date * 1000)
+      };
+
+      this.emit('message', messageData);
+    });
   }
 } 

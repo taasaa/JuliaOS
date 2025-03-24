@@ -324,9 +324,14 @@ fn verify_merkle_proof(
     current == *root
 }
 
-fn verify_message_proof(_message_hash: [u8; 32], proof: &[[u8; 32]]) -> bool {
-    // Implementation needed
-    true
+fn verify_message_proof(message_hash: [u8; 32], proof: &[[u8; 32]], state: &BridgeState) -> bool {
+    // Check if any merkle root in the state matches the proof
+    for root in state.merkle_roots.iter() {
+        if verify_merkle_proof(&message_hash, proof, root) {
+            return true;
+        }
+    }
+    false
 }
 
 fn verify_proof(message_hash: &[u8; 32], proof: &[[u8; 32]], roots: &[[u8; 32]]) -> bool {

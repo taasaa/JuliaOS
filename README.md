@@ -13,6 +13,16 @@
 
 JuliaOS is a comprehensive framework for building decentralized applications (DApps) with a focus on agent-based architectures, swarm intelligence, and cross-chain trading. It provides both a CLI interface for quick deployment and a framework API for custom implementations. By leveraging AI-powered agents and swarm optimization, JuliaOS enables sophisticated trading strategies across multiple blockchains.
 
+## 📋 Table of Contents
+
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Architecture](#architecture)
+- [Framework Components](#framework-components)
+- [Development Guide](#development-guide)
+- [Security](#security)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Features
 
@@ -35,6 +45,14 @@ JuliaOS is a comprehensive framework for building decentralized applications (DA
 - **Execution System**: Optimized execution across multiple DEXes
 - **Monitoring System**: Comprehensive cross-chain analytics
 
+### Security Components
+- **SecurityManager**: Core security infrastructure with emergency response capabilities
+- **Cross-Chain Security**: Bridge authentication and encrypted communications
+- **Risk Assessment**: Real-time transaction and smart contract risk evaluation
+- **Anomaly Detection**: ML-powered monitoring for suspicious activity
+- **Emergency Response**: Automated incident response and circuit breakers
+- **User-Extensible Security**: Custom security modules via the UserModules system
+
 ### Agent System
 - **Solana-First Strategy**: Prioritized execution on Solana
 - **Multiple Trading Strategies**: Choose your own
@@ -54,9 +72,17 @@ JuliaOS is a comprehensive framework for building decentralized applications (DA
 
 ## Quick Start
 
+### Prerequisites
+
+Before you begin, ensure you have the following installed:
+- [Node.js](https://nodejs.org/) (v16 or later)
+- [npm](https://www.npmjs.com/) (v7 or later)
+- [Julia](https://julialang.org/downloads/) (v1.8 or later)
+- [Git](https://git-scm.com/downloads)
+
 ### CLI Installation
 
-The JuliaOS CLI (`j3os`) provides a command-line interface for creating and managing AI-powered trading agents and swarms. You have two options for installing and using the CLI:
+The JuliaOS CLI (`j3os`) provides a command-line interface for creating and managing AI-powered trading agents and swarms.
 
 #### Option 1: Install from npm (Recommended)
 
@@ -64,320 +90,226 @@ The JuliaOS CLI (`j3os`) provides a command-line interface for creating and mana
 # Install the CLI globally
 npm install -g @juliaos/cli
 
-# If you already have an older version installed, you might need to uninstall it first:
+# If you already have an older version installed
 npm uninstall -g @juliaos/cli
-# Or use the force flag:
-npm install -g @juliaos/cli --force
+npm install -g @juliaos/cli
 
-# Now you can use the CLI from anywhere
+# Use the CLI from anywhere
 j3os init my-project
 j3os help
 ```
 
 #### Option 2: Use from Repository
 
-If you're working with the repository directly:
+```bash
+# Clone this repository
+git clone https://github.com/juliaos/framework.git
+cd framework
 
-1. Clone this repository:
+# For Windows
+.\j3os.bat init my-project
+
+# For Mac/Linux (make it executable first)
+chmod +x j3os.sh
+./j3os.sh init my-project
+```
+
+### CLI Commands
+
+```bash
+# Create a new project
+j3os init my-project
+
+# Create a DeFi trading swarm
+j3os defi create-swarm
+
+# Start Julia bridge
+j3os julia bridge --start
+
+# Run backtesting
+j3os defi backtesting --pair ETH/USDC --days 30
+
+# Show help
+j3os help
+
+# Show version
+j3os version
+```
+
+For a complete list of CLI commands, see the [CLI documentation](./packages/juliaos-cli/README.md).
+
+### Example: Creating and Running a Simple Agent
+
+```bash
+# Create a new project
+j3os init trading-agent
+
+# Navigate to the project
+cd trading-agent
+
+# Install dependencies
+npm install
+
+# Build the project
+npm run build
+
+# Run the project
+npm start
+```
+
+## Architecture
+
+JuliaOS follows a modular architecture with the following key components:
+
+```
+packages/              # Core packages (monorepo)
+├── core/              # Framework core functionality
+├── julia-bridge/      # TypeScript-Julia integration
+├── julia-swarm/       # Swarm intelligence algorithms
+├── platforms/         # Platform integrations (Discord, Telegram, etc.)
+├── protocols/         # Blockchain protocol implementations
+├── wallets/           # Wallet integrations
+└── agents/            # Agent implementations
+
+bridges/               # Cross-chain bridges
+├── relay/             # Relay service
+├── solana-bridge/     # Solana bridge implementation
+└── ethereum-bridge/   # Ethereum bridge implementation
+
+contracts/             # Smart contracts
+├── ethereum/          # Ethereum contracts
+└── solana/            # Solana contracts
+
+julia/                 # Julia language components
+├── src/               # Julia source code
+└── test/              # Julia tests
+
+cli/                   # Command-line interface
+```
+
+For a detailed architecture overview, see [STRUCTURE.md](./STRUCTURE.md).
+
+## Framework Components
+
+### Core Framework
+
+The core framework provides the foundation for building agents, implementing swarm intelligence, and interacting with blockchains:
+
+```typescript
+import { BaseAgent, SwarmAgent, Skill } from '@juliaos/core';
+import { JuliaBridge } from '@juliaos/julia-bridge';
+
+// Create an agent with swarm capabilities
+const agent = new SwarmAgent({
+  name: 'DeFiTradingAgent',
+  type: 'trading',
+  swarmConfig: {
+    size: 30,
+    communicationProtocol: 'gossip',
+    consensusThreshold: 0.7,
+    updateInterval: 5000
+  }
+});
+
+// Initialize and start the agent
+await agent.initialize();
+await agent.start();
+```
+
+For more examples, see the [Core Framework Documentation](./packages/core/README.md).
+
+### Julia Integration
+
+JuliaOS uses Julia for high-performance computing tasks, such as swarm optimization algorithms:
+
+```typescript
+import { JuliaBridge } from '@juliaos/julia-bridge';
+
+// Create and initialize the bridge
+const bridge = new JuliaBridge();
+await bridge.initialize();
+
+// Create a swarm for optimization
+const swarmId = await bridge.createSwarm({
+  size: 30,
+  algorithm: 'pso',
+  parameters: {
+    maxPositionSize: 1000,
+    stopLoss: 0.05,
+    takeProfit: 0.1
+  }
+});
+
+// Run optimization
+const result = await bridge.optimizeSwarm(swarmId, marketData);
+```
+
+For more on Julia integration, see:
+- [Julia Bridge Documentation](./packages/julia-bridge/README.md)
+- [Julia Swarm Documentation](./packages/julia-swarm/README.md)
+
+## Development Guide
+
+### Project Setup
+
+1. Clone the repository:
 ```bash
 git clone https://github.com/juliaos/framework.git
 cd framework
 ```
 
-2. Use the CLI scripts directly:
-   - For Windows: Use `.\j3os.bat` in the root directory
-   - For Mac/Linux: Use `./j3os.sh` in the root directory (make it executable first with `chmod +x j3os.sh`)
-
-### CLI Usage
-
+2. Install dependencies:
 ```bash
-# If installed via npm (Option 1)
-j3os init my-project
-j3os version
-j3os help
-
-# If using repository directly (Option 2)
-# For Windows
-.\j3os.bat init my-project
-.\j3os.bat version
-.\j3os.bat help
-
-# For Mac/Linux
-./j3os.sh init my-project
-./j3os.sh version
-./j3os.sh help
+npm install
 ```
 
-#### Troubleshooting
-
-#### Available Commands
-- `j3os init [project-name]` - Create a new JuliaOS project
-- `j3os create` - Create a new component (coming soon)
-- `j3os version` - Show version information
-- `j3os help` - Show help information
-
-#### Common CLI Installation Issues
-
-- **EEXIST error on Windows**: If you see an error like `EEXIST: file already exists`, try uninstalling the CLI first:
-  ```bash
-  npm uninstall -g @juliaos/cli
-  npm install -g @juliaos/cli
-  ```
-
-- **Permission denied on Mac/Linux**: If you encounter permission issues, try using sudo or fixing npm permissions:
-  ```bash
-  sudo npm install -g @juliaos/cli
-  # Or fix npm permissions: https://docs.npmjs.com/resolving-eacces-permissions-errors-when-installing-packages-globally
-  ```
-
-- **Module not found errors**: If the CLI fails with "module not found" errors, make sure you have the latest version:
-  ```bash
-  npm install -g @juliaos/cli@latest
-  ```
-
-#### Project Build Issues
-
-- **Missing @juliaos/core**: This package may not be published yet. Remove it from dependencies in package.json.
-- **Template string errors**: If you see syntax errors in the generated files, make sure the backticks are properly escaped.
-- **TypeScript errors**: Make sure you have TypeScript installed: `npm install -g typescript`
-
-### Project Structure
-
-When you create a new project with `j3os init`, it generates the following structure:
-
-```
-my-project/
-├── src/                 # Source code
-│   ├── agents/          # Agent implementations
-│   │   └── SampleAgent.ts  # Sample agent class
-│   ├── skills/          # Agent skills
-│   └── index.ts         # Main entry point
-├── test/                # Test files
-├── package.json         # Project dependencies
-├── tsconfig.json        # TypeScript configuration
-├── .gitignore           # Git ignore file
-└── README.md            # Project documentation
-```
-
-#### Testing the Generated Project
-
-To test the generated project:
-
+3. Build all packages:
 ```bash
-cd my-project
-npm install  # Note: You may see an error about @juliaos/core not being found
 npm run build
-npm run start
 ```
 
-If you encounter an error about `@juliaos/core` not being found, you can modify the `package.json` file to remove this dependency temporarily:
+### Development Workflow
 
-```json
-"dependencies": {
-  // Remove @juliaos/core dependency until it's published
-}
+1. Make changes to the relevant packages
+2. Build the affected packages:
+```bash
+npm run build --filter=@juliaos/core
 ```
 
-#### Template String Issues
-
-If you encounter issues with backticks in the generated TypeScript files, make sure they are correctly escaped. The files should use proper template literals like:
-
-```typescript
-console.log(`Agent ${this.name} starting...`);
+3. Run tests:
+```bash
+npm test
 ```
 
-You can customize this structure based on your specific needs.
+### Common Issues
 
-### Framework Usage
+- **TypeScript Errors**: Ensure you have the correct TypeScript version installed.
+- **Julia Integration**: Make sure Julia is installed and accessible in your PATH.
+- **Package Dependencies**: If using unpublished packages, use workspace references in `package.json`.
 
-```typescript
-import { JuliaOS, Agent, Swarm } from '@juliaos/core';
-import { MarketDataService } from '@juliaos/protocols';
-import { MetaMaskWalletAdapter } from '@juliaos/wallets-metamask';
+### Testing Security
 
-// Initialize wallet and connect
-const wallet = new MetaMaskWalletAdapter();
-await wallet.connect();
+To help ensure security when pushing to public repositories, this project includes helper scripts:
 
-// Set up market data service with Chainlink feeds
-const marketData = new MarketDataService(provider, {
-  chainlinkFeeds: {
-    // ETH/USD price feed address
-    '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2': '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419'
-  },
-  updateInterval: 30000 // 30 seconds
-});
+```bash
+# On Windows
+scripts\clean-sensitive-files.bat
 
-// Create custom trading agent
-class CrossChainArbitrageAgent extends Agent {
-  async initialize() {
-    // Connect to multiple chains
-    await this.connectChains(['ethereum', 'solana']);
-    
-    // Subscribe to price updates
-    marketData.on('update', this.onPriceUpdate.bind(this));
-  }
-  
-  async onPriceUpdate(data) {
-    // Analyze for arbitrage opportunities
-    const opportunities = await this.findArbitrageOpportunities(data);
-    if (opportunities.length > 0) {
-      await this.executeTrade(opportunities[0]);
-    }
-  }
-}
-
-// Create and start a swarm of agents
-const swarm = new Swarm([
-  new CrossChainArbitrageAgent()
-]);
-await swarm.start();
+# On Mac/Linux
+chmod +x scripts/clean-sensitive-files.sh
+scripts/clean-sensitive-files.sh
 ```
 
-## Architecture
+These scripts remove sensitive files from git tracking without deleting them from your workspace.
 
-```
-packages/
-├── protocols/
-│   ├── src/
-│   │   ├── dex/
-│   │   │   ├── chains/           # Chain-specific implementations
-│   │   │   │   ├── ethereum/
-│   │   │   │   ├── base/
-│   │   │   │   └── solana/
-│   │   │   │   └── services/     # Core services
-│   │   │   └── types/           # Shared types
-│   │   └── scripts/             # Utility scripts
-```
+## Security
 
-## Documentation
-
-### Getting Started
-- [Quick Start Guide](docs/getting-started/quick-start.md)
-- [Installation Guide](docs/getting-started/installation.md)
-- [Basic Concepts](docs/getting-started/basic-concepts.md)
-
-### Framework Documentation
-- [Framework Guide](docs/framework/guide.md)
-- [API Reference](docs/framework/api.md)
-- [Architecture Overview](docs/framework/architecture.md)
-- [Component Guide](docs/framework/components.md)
-
-### CLI Documentation
-- [CLI Guide](docs/cli/guide.md)
-- [Command Reference](docs/cli/commands.md)
-  - `j3os init [project-name]` - Create a new JuliaOS project
-  - `j3os create` - Create a new component (agent, skill, connector)
-  - `j3os version` - Display the CLI version information
-  - `j3os help` - Show help information for all commands
-- [Configuration Guide](docs/cli/configuration.md)
-
-### Examples
-- [Simple Agent Example](docs/examples/simple-agent.md)
-- [Trading Swarm Example](docs/examples/trading-swarm.md)
-- [CLI Trading Swarm Guide](docs/examples/cli-trading.md)
-- [Advanced Examples](docs/examples/advanced.md)
-
-### Advanced Topics
-- [Security Best Practices](docs/advanced/security.md)
-- [Performance Optimization](docs/advanced/performance.md)
-- [Deployment Guide](docs/advanced/deployment.md)
-- [Testing Guide](docs/advanced/testing.md)
-- [Troubleshooting](docs/advanced/troubleshooting.md)
-
-## Configuration
-
-### Chain-Specific Settings
-- **Ethereum**: Optimized for mainnet operations
-- **Base**: L2-specific optimizations
-- **Solana**: High-frequency trading parameters
-
-### Risk Parameters
-- Maximum position sizes
-- Cross-chain exposure limits
-- Drawdown controls
-- Daily loss limits
+For security best practices and vulnerability reporting, please see [SECURITY.md](./SECURITY.md).
 
 ## Contributing
 
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+We welcome contributions from the community! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
 
 ## License
 
-MIT License - see LICENSE file for details
-
-## Community
-
-- [GitHub Discussions](coming soon)
-- [Medium](Coming soon)
-- [Twitter](https://twitter.com/BuildOnJulia
-
-## Support
-
-- Documentation: [docs.juliaos.dev](coming soon)
-- Issues: [GitHub Issues](https://github.com/juliaos/framework/issues)
-- Email: support@juliaos.dev
-
-## Directory Structure
-
-The JuliaOS Framework follows a clean, organized directory structure:
-
-```
-/
-├── packages/                # Shared packages (monorepo)
-│   ├── core/                # Core framework
-│   ├── protocols/           # Blockchain protocols
-│   ├── agents/              # Agent implementations
-│   ├── wallets/             # Wallet integrations 
-│   ├── platforms/           # Platform integrations
-│   └── ...                  # Other packages
-│
-├── contracts/               # Smart contracts
-│   ├── ethereum/            # Ethereum contracts
-│   ├── solana/              # Solana contracts
-│   └── README.md            # Contracts documentation
-│
-├── bridges/                 # Bridge implementations
-│   ├── relay/               # Relay service
-│   ├── solana-bridge/       # Solana bridge
-│   ├── ethereum-bridge/     # Ethereum bridge
-│   └── README.md            # Bridge documentation
-│
-├── julia/                   # Julia code
-│   ├── src/                 # Julia source code
-│   ├── test/                # Julia tests
-│   ├── examples/            # Julia examples
-│   └── README.md            # Julia documentation
-│
-├── tests/                   # Tests
-│   ├── unit/                # Unit tests
-│   ├── integration/         # Integration tests
-│   ├── contracts/           # Contract tests
-│   ├── e2e/                 # End-to-end tests
-│   └── README.md            # Testing documentation
-│
-├── docs/                    # Documentation
-│   ├── api/                 # API documentation
-│   ├── guides/              # User guides
-│   └── architecture/        # Architecture documentation
-│
-├── scripts/                 # Utility scripts
-│   ├── deploy/              # Deployment scripts
-│   ├── dev/                 # Development scripts
-│   └── utilities/           # Utility scripts
-│
-├── config/                  # Configuration files
-│   ├── default.env          # Default environment variables
-│   ├── tsconfig.base.json   # Base TypeScript configuration
-│   └── README.md            # Configuration documentation
-│
-└── cli/                     # Command-line interface
-    ├── j3os.ps1             # PowerShell implementation
-    └── j3os.sh              # Bash implementation
-```
-
-For more detailed information about the repository structure, see [STRUCTURE.md](STRUCTURE.md).
+This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.

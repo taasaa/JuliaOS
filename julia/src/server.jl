@@ -3,6 +3,30 @@ using HTTP
 using WebSockets
 using JSON
 using Logging
+using Dates
+using Distributed
+using SharedArrays
+using Random
+
+# Configure logging
+ENV["JULIA_DEBUG"] = "JuliaBridge"
+Logging.global_logger(ConsoleLogger(stderr, Logging.Debug))
+
+# Constants
+const HEARTBEAT_INTERVAL = 30  # seconds
+const MAX_WORKERS = 4
+const BATCH_SIZE = 100
+const OPTIMIZATION_TIMEOUT = 30  # seconds
+
+# Types
+struct OptimizationParams
+    algorithm::String
+    dimensions::Int
+    populationSize::Int
+    iterations::Int
+    bounds::Dict{String, Vector{Float64}}
+    objectiveFunction::String
+end
 
 # Global state
 const SERVER_STATE = Dict(
@@ -10,6 +34,39 @@ const SERVER_STATE = Dict(
     "active_swarms" => Dict{String, Any}(),
     "last_health_check" => nothing
 )
+
+const message_queue = Channel{Dict{String, Any}}(1000)
+const active_connections = Ref{Set{WebSocket}}(Set{WebSocket}())
+const last_heartbeats = Dict{WebSocket, DateTime}()
+const optimization_results = Dict{String, Vector{Float64}}()
+
+# Worker pool for parallel optimization
+const worker_pool = addprocs(MAX_WORKERS)
+
+# Optimization algorithms
+function pso_optimize(params::OptimizationParams)
+    # Particle Swarm Optimization implementation
+    # This is a placeholder - implement actual PSO algorithm
+    return rand(params.dimensions)
+end
+
+function aco_optimize(params::OptimizationParams)
+    # Ant Colony Optimization implementation
+    # This is a placeholder - implement actual ACO algorithm
+    return rand(params.dimensions)
+end
+
+function abc_optimize(params::OptimizationParams)
+    # Artificial Bee Colony implementation
+    # This is a placeholder - implement actual ABC algorithm
+    return rand(params.dimensions)
+end
+
+function firefly_optimize(params::OptimizationParams)
+    # Firefly Algorithm implementation
+    # This is a placeholder - implement actual Firefly algorithm
+    return rand(params.dimensions)
+end
 
 # API endpoints
 function handle_http_request(req::HTTP.Request)
@@ -133,6 +190,117 @@ function handle_ws_connection(ws::WebSocket)
     end
 end
 
+# Message handlers
+function handle_optimization_request(ws::WebSocket, params::Dict{String, Any})
+    try
+        # Validate parameters
+        opt_params = OptimizationParams(
+            params["algorithm"],
+            params["dimensions"],
+            params["populationSize"],
+            params["iterations"],
+            params["bounds"],
+            params["objectiveFunction"]
+        )
+
+        # Select optimization algorithm
+        result = if opt_params.algorithm == "pso"
+            pso_optimize(opt_params)
+        elseif opt_params.algorithm == "aco"
+            aco_optimize(opt_params)
+        elseif opt_params.algorithm == "abc"
+            abc_optimize(opt_params)
+        elseif opt_params.algorithm == "firefly"
+            firefly_optimize(opt_params)
+        else
+            throw(ArgumentError("Unknown optimization algorithm: $(opt_params.algorithm)"))
+        end
+
+        # Store result
+        optimization_results[params["id"]] = result
+
+        # Send response
+        response = Dict(
+            "id" => params["id"],
+            "type" => "optimization_result",
+            "data" => result
+        )
+        send(ws, JSON.json(response))
+    catch e
+        @error "Optimization failed" exception=(e, catch_backtrace())
+        error_response = Dict(
+            "id" => params["id"],
+            "type" => "error",
+            "data" => "Optimization failed: $(e.msg)"
+        )
+        send(ws, JSON.json(error_response))
+    end
+end
+
+function handle_heartbeat(ws::WebSocket)
+    last_heartbeats[ws] = now()
+    response = Dict(
+        "type" => "heartbeat",
+        "data" => Dict("timestamp" => time())
+    )
+    send(ws, JSON.json(response))
+end
+
+# Connection management
+function handle_connection(ws::WebSocket)
+    push!(active_connections[], ws)
+    last_heartbeats[ws] = now()
+
+    try
+        while isopen(ws)
+            msg = receive(ws)
+            data = JSON.parse(String(msg))
+
+            if data["type"] == "optimize"
+                handle_optimization_request(ws, data)
+            elseif data["type"] == "heartbeat"
+                handle_heartbeat(ws)
+            end
+        end
+    catch e
+        @error "Connection error" exception=(e, catch_backtrace())
+    finally
+        delete!(active_connections[], ws)
+        delete!(last_heartbeats, ws)
+    end
+end
+
+# Heartbeat monitoring
+function monitor_heartbeats()
+    while true
+        now_time = now()
+        for (ws, last_heartbeat) in last_heartbeats
+            if (now_time - last_heartbeat).value > HEARTBEAT_INTERVAL * 2
+                @warn "Client heartbeat timeout" ws=ws
+                close(ws)
+            end
+        end
+        sleep(HEARTBEAT_INTERVAL)
+    end
+end
+
+# Message queue processor
+function process_message_queue()
+    while true
+        try
+            msg = take!(message_queue)
+            if haskey(msg, "ws")
+                ws = msg["ws"]
+                if isopen(ws)
+                    handle_optimization_request(ws, msg)
+                end
+            end
+        catch e
+            @error "Message processing error" exception=(e, catch_backtrace())
+        end
+    end
+end
+
 # Start server
 function start_server(host="127.0.0.1", port=8080)
     # Create HTTP server
@@ -152,6 +320,10 @@ function start_server(host="127.0.0.1", port=8080)
             sleep(60)  # Check every minute
         end
     end
+    
+    # Start background tasks
+    @async monitor_heartbeats()
+    @async process_message_queue()
     
     return http_server, ws_server
 end

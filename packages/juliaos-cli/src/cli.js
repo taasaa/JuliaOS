@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+// This is a simple entry point that loads the compiled TypeScript implementation
+require('../dist/index');
+
 console.log('JuliaOS CLI is starting...');
 console.log('JuliaOS CLI Version: 0.1.0');
 

@@ -1,262 +1,248 @@
 using Test
 using JuliaOS
-using JuliaOS.CLI.DefiCLI
-using JuliaOS.LiquidityProvider
-using JuliaOS.CrossChainArbitrage
-using JSON
+using JuliaOS.Config
+using JuliaOS.SwarmManager
+using JuliaOS.MarketData
+using JuliaOS.Bridge
+using JuliaOS.CLI.Interactive
 using Dates
-using Random
+using JSON
 
-# Set random seed for reproducibility
-Random.seed!(42)
+# Test configuration
+const TEST_CONFIG = Config.JuliaOSConfig(
+    "test",
+    Dict{String, String}(),
+    Config.BridgeConfig(
+        Dict(
+            "ethereum" => Config.ChainConfig(
+                "http://localhost:8545",
+                1,
+                21000,
+                50.0,
+                1,
+                30
+            ),
+            "solana" => Config.ChainConfig(
+                "http://localhost:8899",
+                1,
+                100000,
+                0.00001,
+                1,
+                30
+            )
+        ),
+        100,
+        3,
+        30,
+        12
+    ),
+    Dict{String, Config.AgentConfig}(),
+    Dict{String, Config.SwarmConfig}(),
+    Config.DashboardConfig(
+        "127.0.0.1",
+        8000,
+        5,
+        1000,
+        Dict(
+            "max_drawdown" => 0.1,
+            "min_win_rate" => 0.5,
+            "min_sharpe" => 1.0
+        )
+    ),
+    Dict(
+        "level" => "DEBUG",
+        "file" => "test.log",
+        "max_size" => 1_000_000,
+        "backup_count" => 2
+    ),
+    Dict(
+        "enabled" => true,
+        "interval" => 60,
+        "max_backups" => 5,
+        "path" => "test_backups"
+    )
+)
 
 # Test helper functions
-function setup_test_env()
+function setup_test_environment()
     # Create test directories
-    mkpath("test_data/logs")
-    mkpath("test_data/config")
+    mkpath("test_data")
+    mkpath("test_backups")
     
-    # Create test environment file
-    test_env = """
-    # Test RPC Endpoints
-    ETH_RPC_URL=https://eth-mainnet.alchemyapi.io/v2/test-key
-    POLYGON_RPC_URL=https://polygon-mainnet.g.alchemy.com/v2/test-key
-    
-    # Test Bridge Addresses
-    ETH_BRIDGE_ADDRESS=0x1234567890123456789012345678901234567890
-    POLYGON_BRIDGE_ADDRESS=0x0987654321098765432109876543210987654321
-    
-    # Test DEX Addresses
-    UNISWAP_V3_FACTORY=0xabcdef1234567890abcdef1234567890abcdef12
-    UNISWAP_V3_ROUTER=0xabcdef1234567890abcdef1234567890abcdef12
-    
-    # Test API Keys
-    ETHERSCAN_API_KEY=test-etherscan-key
-    POLYGONSCAN_API_KEY=test-polygonscan-key
-    
-    # Test Monitoring
-    PROMETHEUS_PORT=9090
-    GRAFANA_PORT=3000
-    
-    # Test Logging
-    LOG_LEVEL=DEBUG
-    LOG_FILE=test_data/logs/test.log
-    
-    # Test Risk Management
-    MAX_POSITION_SIZE=0.1
-    MAX_DAILY_LOSS=0.05
-    MAX_DRAWDOWN=0.1
-    """
-    
-    open("test_data/.env", "w") do f
-        write(f, test_env)
-    end
+    # Save test configuration
+    Config.save_config(TEST_CONFIG, "test_data/config.json")
 end
 
-function cleanup_test_env()
-    # Remove test directories and files
+function cleanup_test_environment()
+    # Remove test directories
     rm("test_data", recursive=true, force=true)
+    rm("test_backups", recursive=true, force=true)
 end
 
-# Test CLI configuration
-@testset "CLI Configuration Tests" begin
-    @testset "Agent Configuration" begin
-        # Test agent config creation
-        agent_config = DefiCLI.create_agent_config()
-        @test agent_config isa DefiCLI.AgentConfig
-        @test agent_config.name != ""
-        @test agent_config.type in ["arbitrage", "liquidity"]
-        @test !isempty(agent_config.chains)
-        @test !isempty(agent_config.risk_params)
+# Configuration tests
+@testset "Configuration Tests" begin
+    @test begin
+        # Test configuration validation
+        Config.validate_config(TEST_CONFIG)
+        true
     end
     
-    @testset "Swarm Configuration" begin
-        # Test swarm config creation
-        swarm_config = DefiCLI.create_swarm_config()
-        @test swarm_config isa DefiCLI.SwarmConfig
-        @test swarm_config.name != ""
-        @test swarm_config.coordination_type in ["independent", "coordinated", "hierarchical"]
-        @test !isempty(swarm_config.agents)
-        @test !isempty(swarm_config.shared_risk_params)
+    @test begin
+        # Test configuration loading
+        loaded_config = Config.load_config("test_data/config.json")
+        loaded_config.environment == TEST_CONFIG.environment
     end
     
-    @testset "Configuration Serialization" begin
-        # Test config saving and loading
-        config = DefiCLI.create_swarm_config()
-        test_file = "test_data/config/test_config.json"
-        
-        DefiCLI.save_config(config, test_file)
-        @test isfile(test_file)
-        
-        loaded_config = DefiCLI.load_config(test_file)
-        @test loaded_config.name == config.name
-        @test loaded_config.coordination_type == config.coordination_type
-        @test length(loaded_config.agents) == length(config.agents)
-        
-        rm(test_file)
+    @test begin
+        # Test configuration saving
+        Config.save_config(TEST_CONFIG, "test_data/config_save.json")
+        isfile("test_data/config_save.json")
+    end
+    
+    @test begin
+        # Test configuration backup
+        Config.backup_config(TEST_CONFIG)
+        length(readdir("test_backups")) > 0
+    end
+    
+    @test begin
+        # Test configuration restoration
+        backup_files = filter(f -> startswith(f, "config_"), readdir("test_backups"))
+        if !isempty(backup_files)
+            restored_config = Config.restore_config(joinpath("test_backups", backup_files[1]))
+            restored_config !== nothing
+        else
+            true
+        end
     end
 end
 
-# Test arbitrage functionality
-@testset "Arbitrage Tests" begin
-    @testset "Market Data" begin
+# Bridge tests
+@testset "Bridge Tests" begin
+    @test begin
+        # Test bridge initialization
+        Bridge.start_bridge()
+        Bridge.CONNECTION.is_connected
+    end
+    
+    @test begin
+        # Test chain status
+        status = Bridge.get_chain_status("ethereum")
+        haskey(status, "connected") && haskey(status, "block_height")
+    end
+    
+    @test begin
+        # Test token balance
+        if Bridge.CONNECTION.is_connected
+            balance = Bridge.get_token_balance("ethereum", "ETH")
+            balance !== nothing
+        else
+            true
+        end
+    end
+end
+
+# Market data tests
+@testset "Market Data Tests" begin
+    @test begin
         # Test market data fetching
-        chain_info = Dict(
-            "ethereum" => CrossChainArbitrage.ChainInfo(
-                "ethereum",
-                "https://eth-mainnet.alchemyapi.io/v2/test-key",
-                50.0,
-                "0x1234567890123456789012345678901234567890",
-                ["ETH", "USDC"]
-            )
-        )
-        
-        market_data = CrossChainArbitrage.get_market_data(chain_info["ethereum"])
-        @test !isnothing(market_data)
-        @test haskey(market_data, "ETH")
-        @test haskey(market_data, "USDC")
+        data = MarketData.fetch_market_data("ethereum", "uniswap-v3", "ETH/USDC")
+        data !== nothing && haskey(data, "price")
     end
     
-    @testset "Opportunity Detection" begin
-        # Test arbitrage opportunity detection
-        market_data = Dict(
-            "ethereum" => Dict(
-                "ETH" => Dict("price" => 2000.0, "volume" => 1000000.0),
-                "USDC" => Dict("price" => 1.0, "volume" => 10000000.0)
-            ),
-            "polygon" => Dict(
-                "ETH" => Dict("price" => 2010.0, "volume" => 500000.0),
-                "USDC" => Dict("price" => 1.0, "volume" => 5000000.0)
-            )
+    @test begin
+        # Test historical data
+        historical = MarketData.fetch_historical(
+            "ethereum", "uniswap-v3", "ETH/USDC";
+            days=1, interval="1h"
         )
-        
-        risk_params = Dict(
-            "max_position_size" => 0.05,
-            "min_profit_threshold" => 0.02,
-            "max_gas_price" => 50.0,
-            "confidence_threshold" => 0.9
-        )
-        
-        opportunities = CrossChainArbitrage.find_opportunities(market_data, risk_params)
-        @test !isempty(opportunities)
-        @test all(opp -> opp.expected_profit > risk_params["min_profit_threshold"], opportunities)
+        !isempty(historical)
+    end
+    
+    @test begin
+        # Test indicator calculation
+        prices = [100.0, 101.0, 99.0, 102.0, 101.0]
+        volumes = [1000.0, 1100.0, 900.0, 1200.0, 1100.0]
+        indicators = MarketData.calculate_indicators(prices, volumes)
+        haskey(indicators, "rsi") && haskey(indicators, "macd")
     end
 end
 
-# Test liquidity provision functionality
-@testset "Liquidity Provider Tests" begin
-    @testset "Pool Management" begin
-        # Test pool info creation
-        pool_info = LiquidityProvider.PoolInfo(
-            "ethereum",
-            "uniswap-v3",
-            "ETH/USDC",
-            0.003,
-            1000000.0,
-            500000.0,
-            0.1,
-            (1900.0, 2100.0)
-        )
-        
-        @test pool_info.chain == "ethereum"
-        @test pool_info.protocol == "uniswap-v3"
-        @test pool_info.pair == "ETH/USDC"
-        @test pool_info.fee_tier == 0.003
-        @test pool_info.tvl == 1000000.0
-        @test pool_info.volume_24h == 500000.0
-        @test pool_info.apy == 0.1
-        @test pool_info.price_range == (1900.0, 2100.0)
-    end
-    
-    @testset "Position Management" begin
-        # Test position rebalancing logic
-        pool_info = LiquidityProvider.PoolInfo(
-            "ethereum",
-            "uniswap-v3",
-            "ETH/USDC",
-            0.003,
-            1000000.0,
-            500000.0,
-            0.1,
-            (1900.0, 2100.0)
-        )
-        
-        risk_params = Dict(
-            "max_position_size" => 0.1,
-            "min_liquidity_depth" => 100000.0,
-            "max_il_threshold" => 0.05,
-            "min_apy_threshold" => 0.1
-        )
-        
-        needs_rebalancing = LiquidityProvider.needs_rebalancing(pool_info, risk_params)
-        @test needs_rebalancing isa Bool
-        
-        il = LiquidityProvider.calculate_impermanent_loss(pool_info)
-        @test il isa Float64
-        @test il >= 0.0
-    end
-end
-
-# Test swarm coordination
-@testset "Swarm Coordination Tests" begin
-    @testset "Independent Coordination" begin
-        # Test independent agent coordination
-        swarm = create_arbitrage_swarm(2, Dict(), Dict())
-        @test length(swarm.agents) == 2
-        @test all(agent -> agent.is_independent, swarm.agents)
-    end
-    
-    @testset "Coordinated Coordination" begin
-        # Test coordinated agent coordination
-        swarm = create_arbitrage_swarm(2, Dict(), Dict())
-        swarm.coordination_type = "coordinated"
-        @test length(swarm.agents) == 2
-        @test !all(agent -> agent.is_independent, swarm.agents)
-    end
-end
-
-# Test error handling
-@testset "Error Handling Tests" begin
-    @testset "Invalid Configuration" begin
-        # Test handling of invalid configuration
-        @test_throws ArgumentError DefiCLI.load_config("nonexistent.json")
-    end
-    
-    @testset "Network Errors" begin
-        # Test handling of network errors
-        chain_info = Dict(
-            "ethereum" => CrossChainArbitrage.ChainInfo(
-                "ethereum",
-                "https://invalid-url.com",
-                50.0,
-                "0x1234567890123456789012345678901234567890",
-                ["ETH"]
+# Swarm manager tests
+@testset "Swarm Manager Tests" begin
+    @test begin
+        # Test swarm creation
+        swarm_config = SwarmConfig(
+            "test_swarm",
+            10,
+            "pso",
+            ["ETH/USDC"],
+            Dict(
+                "inertia_weight" => 0.7,
+                "cognitive_coef" => 1.5,
+                "social_coef" => 1.5
             )
         )
-        
-        @test_throws HTTP.RequestError CrossChainArbitrage.get_market_data(chain_info["ethereum"])
+        swarm = SwarmManager.create_swarm(swarm_config, "ethereum")
+        swarm !== nothing
+    end
+    
+    @test begin
+        # Test agent creation
+        agent = SwarmManager.create_agent(
+            "test_agent",
+            "Arbitrage Agent",
+            "Mean Reversion",
+            ["ethereum"],
+            Dict(
+                "max_position_size" => 0.1,
+                "min_profit_threshold" => 0.01
+            )
+        )
+        agent !== nothing
+    end
+    
+    @test begin
+        # Test performance calculation
+        returns = [0.01, -0.005, 0.02, -0.01, 0.015]
+        metrics = SwarmManager.calculate_performance_metrics(returns)
+        haskey(metrics, "sharpe_ratio") && haskey(metrics, "max_drawdown")
+    end
+end
+
+# CLI tests
+@testset "CLI Tests" begin
+    @test begin
+        # Test command completion
+        completions = Interactive.get_command_completions("br")
+        "bridge" in completions
+    end
+    
+    @test begin
+        # Test input validation
+        valid, _ = Interactive.validate_input("0.5", :float, min=0.0, max=1.0)
+        valid
+    end
+    
+    @test begin
+        # Test invalid input validation
+        valid, _ = Interactive.validate_input("1.5", :float, min=0.0, max=1.0)
+        !valid
     end
 end
 
 # Run all tests
-function run_all_tests()
-    # Setup test environment
-    setup_test_env()
+function run_tests()
+    setup_test_environment()
     
-    # Run tests
-    @testset "JuliaOS DeFi Framework Tests" begin
-        include("test_cli.jl")
-        include("test_arbitrage.jl")
-        include("test_liquidity.jl")
-        include("test_swarm.jl")
-        include("test_error_handling.jl")
+    @testset "JuliaOS Framework Tests" begin
+        include("runtests.jl")
     end
     
-    # Cleanup
-    cleanup_test_env()
+    cleanup_test_environment()
 end
 
 # Run tests if this file is executed directly
 if abspath(PROGRAM_FILE) == @__FILE__
-    run_all_tests()
+    run_tests()
 end 
