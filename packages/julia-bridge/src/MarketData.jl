@@ -1,12 +1,118 @@
 # Market data functionality for JuliaBridge
+module MarketData
 
 using Dates
 using Statistics
 using HTTP
 using JSON
 using LinearAlgebra
+using DataFrames
 
-# Market data point struct is now defined in the main module file
+export MarketDataPoint, fetch_market_data, calculate_indicators, connect_websocket
+export from_json, to_json
+
+"""
+    MarketDataPoint
+
+Represents a single market data point.
+"""
+struct MarketDataPoint
+    timestamp::DateTime
+    price::Float64
+    volume::Float64
+    liquidity::Float64
+    indicators::Dict{String, Float64}
+end
+
+"""
+    from_json(data::Vector{Dict})
+
+Convert JSON market data to internal format.
+"""
+function from_json(data::Vector)
+    df = DataFrame()
+    
+    # Initialize the DataFrame with necessary columns
+    if !isempty(data) && data[1] isa Dict
+        # Add all common fields
+        df.timestamp = DateTime[]
+        df.price = Float64[]
+        
+        # Add symbol-specific columns
+        symbols = Set{String}()
+        for item in data
+            if haskey(item, "symbol")
+                push!(symbols, item["symbol"])
+            end
+        end
+        
+        for symbol in symbols
+            df[!, Symbol(symbol)] = Float64[]
+        end
+        
+        # Fill data
+        for item in data
+            # Process each row
+            timestamp = nothing
+            
+            if haskey(item, "timestamp")
+                if item["timestamp"] isa AbstractString
+                    timestamp = DateTime(item["timestamp"])
+                else
+                    timestamp = unix2datetime(item["timestamp"] / 1000)
+                end
+            else
+                timestamp = now()
+            end
+            
+            # Create a row with default values
+            row = Dict{Symbol, Any}(
+                :timestamp => timestamp
+            )
+            
+            # For each symbol, set default price
+            for symbol in symbols
+                row[Symbol(symbol)] = NaN
+            end
+            
+            # Add symbol-specific price
+            if haskey(item, "symbol") && haskey(item, "price")
+                symbol = item["symbol"]
+                row[Symbol(symbol)] = Float64(item["price"])
+                
+                # Also set the generic price field
+                row[:price] = Float64(item["price"])
+            end
+            
+            # Add the row
+            push!(df, row)
+        end
+    else
+        # Empty DataFrame with default structure
+        df.timestamp = DateTime[]
+        df.price = Float64[]
+    end
+    
+    return df
+end
+
+"""
+    to_json(data::Vector{MarketDataPoint})
+
+Convert internal market data to JSON format.
+"""
+function to_json(data::Vector{MarketDataPoint})
+    return [
+        Dict(
+            "timestamp" => string(point.timestamp),
+            "price" => point.price,
+            "volume" => point.volume,
+            "liquidity" => point.liquidity,
+            "indicators" => point.indicators
+        )
+        for point in data
+    ]
+end
 
 # Fetch market data from API
 function fetch_market_data(symbol::String, interval::String="1h", limit::Int=100)
@@ -208,5 +314,4 @@ function calculate_vwap(prices::Vector{Float64}, volumes::Vector{Float64})
     
     vwap
 end
-
-export MarketDataPoint, fetch_market_data, calculate_indicators, connect_websocket 
+end 

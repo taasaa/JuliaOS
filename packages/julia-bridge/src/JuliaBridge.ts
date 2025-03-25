@@ -120,45 +120,79 @@ export class JuliaBridge extends EventEmitter {
   }
 
   private startJuliaProcess(): void {
-    // Check if Julia environment exists
-    const juliaProjectPath = path.join(process.cwd(), 'packages', 'julia-bridge');
-    if (!fs.existsSync(path.join(juliaProjectPath, 'Project.toml'))) {
-      throw new Error('Julia project environment not found. Check that Julia is properly installed.');
-    }
+    try {
+      // Determine the Julia project path more robustly with platform-specific handling
+      let juliaProjectPath;
+      if (process.platform === 'win32') {
+        // Windows path handling
+        juliaProjectPath = path.resolve(process.cwd(), 'packages', 'julia-bridge');
+      } else {
+        // Unix path handling
+        juliaProjectPath = path.join(process.cwd(), 'packages', 'julia-bridge');
+      }
+      
+      // Check if Julia environment exists with better error handling
+      const projectTomlPath = path.join(juliaProjectPath, 'Project.toml');
+      if (!fs.existsSync(projectTomlPath)) {
+        throw new JuliaBridgeError(
+          `Julia project environment not found at ${projectTomlPath}. Check that Julia is properly installed.`,
+          'PROJECT_NOT_FOUND'
+        );
+      }
+      
+      // Prepare command arguments with explicit script path
+      const initScript = path.join(juliaProjectPath, 'src', 'JuliaOS.jl');
+      const juliaArgs = [
+        `--project=${juliaProjectPath}`,
+        '-e',
+        `include("${initScript.replace(/\\/g, '\\\\')}")`
+      ];
+      
+      // Start Julia process with improved error handling
+      this.juliaProcess = spawn(this.juliaPath, juliaArgs);
+      
+      // Set up event handlers with better error logging
+      if (this.juliaProcess.stdout) {
+        this.juliaProcess.stdout.on('data', (data: Buffer) => this.handleJuliaOutput(data));
+      } else {
+        throw new JuliaBridgeError('Julia process stdout is not available', 'PROCESS_ERROR');
+      }
 
-    // Start Julia process
-    this.juliaProcess = spawn(this.juliaPath, ['--project=' + juliaProjectPath]);
-    
-    // Set up event handlers
-    if (this.juliaProcess.stdout) {
-      this.juliaProcess.stdout.on('data', (data: Buffer) => this.handleJuliaOutput(data));
-    }
+      if (this.juliaProcess.stderr) {
+        this.juliaProcess.stderr.on('data', (data: Buffer) => {
+          const errorMsg = data.toString().trim();
+          console.error(`Julia stderr: ${errorMsg}`);
+          this.emit('error', new JuliaBridgeError(`Julia error: ${errorMsg}`, 'JULIA_STDERR'));
+        });
+      }
 
-    if (this.juliaProcess.stderr) {
-      this.juliaProcess.stderr.on('data', (data: Buffer) => {
-        const errorMsg = data.toString().trim();
-        this.emit('error', new Error(`Julia error: ${errorMsg}`));
+      this.juliaProcess.on('close', (code) => {
+        this.isInitialized = false;
+        console.log(`Julia process closed with code ${code}`);
+        this.emit('disconnected', { code });
+        
+        // Handle reconnection
+        if (code !== 0 && this.autoReconnect) {
+          this.handleReconnect();
+        }
       });
+
+      this.juliaProcess.on('error', (error) => {
+        console.error('Julia process error:', error);
+        this.emit('error', new JuliaBridgeError(`Julia process error: ${error.message}`, 'PROCESS_ERROR'));
+        this.isInitialized = false;
+        
+        if (this.autoReconnect) {
+          this.handleReconnect();
+        }
+      });
+    } catch (error) {
+      console.error('Failed to start Julia process:', error);
+      throw new JuliaBridgeError(
+        `Failed to start Julia process: ${error instanceof Error ? error.message : String(error)}`,
+        'PROCESS_START_ERROR'
+      );
     }
-
-    this.juliaProcess.on('close', (code) => {
-      this.isInitialized = false;
-      this.emit('disconnected', { code });
-      
-      // Handle reconnection
-      if (code !== 0 && this.autoReconnect) {
-        this.handleReconnect();
-      }
-    });
-
-    this.juliaProcess.on('error', (error) => {
-      this.emit('error', error);
-      this.isInitialized = false;
-      
-      if (this.autoReconnect) {
-        this.handleReconnect();
-      }
-    });
   }
 
   private handleReconnect(): void {
