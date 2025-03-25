@@ -1,3 +1,5 @@
+import { BigNumber } from 'ethers';
+
 /**
  * Supported blockchain network IDs
  */
@@ -9,7 +11,7 @@ export enum ChainId {
   BASE = 8453,
   BSC = 56,
   AVALANCHE = 43114,
-  SOLANA = 999999999, // Placeholder for Solana
+  SOLANA = -1, // Special case for Solana
 }
 
 /**
@@ -41,10 +43,10 @@ export interface Provider {
   getBlockNumber(): Promise<number>;
   getTransactionReceipt(hash: string): Promise<any>;
   getTransaction(hash: string): Promise<any>;
-  estimateGas(transaction: any): Promise<any>;
+  estimateGas(tx: any): Promise<any>;
   getGasPrice(): Promise<any>;
-  call(transaction: any): Promise<any>;
-  sendTransaction(transaction: any): Promise<any>;
+  call(tx: any): Promise<any>;
+  sendTransaction(tx: any): Promise<any>;
 }
 
 /**
@@ -65,4 +67,57 @@ export interface Account {
   chainId: ChainId;
   balance?: string;
   nonce?: number;
+}
+
+export class TokenAmount {
+  private value: BigNumber;
+
+  private constructor(value: BigNumber) {
+    this.value = value;
+  }
+
+  public static fromRaw(amount: string | number | BigNumber, decimals: number): TokenAmount {
+    const bn = BigNumber.from(amount);
+    return new TokenAmount(bn.mul(BigNumber.from(10).pow(decimals)));
+  }
+
+  public static zero(): TokenAmount {
+    return new TokenAmount(BigNumber.from(0));
+  }
+
+  public add(other: TokenAmount): TokenAmount {
+    return new TokenAmount(this.value.add(other.value));
+  }
+
+  public sub(other: TokenAmount): TokenAmount {
+    return new TokenAmount(this.value.sub(other.value));
+  }
+
+  public mul(other: TokenAmount): TokenAmount {
+    return new TokenAmount(this.value.mul(other.value));
+  }
+
+  public div(other: TokenAmount): TokenAmount {
+    return new TokenAmount(this.value.div(other.value));
+  }
+
+  public gt(other: TokenAmount): boolean {
+    return this.value.gt(other.value);
+  }
+
+  public lt(other: TokenAmount): boolean {
+    return this.value.lt(other.value);
+  }
+
+  public eq(other: TokenAmount): boolean {
+    return this.value.eq(other.value);
+  }
+
+  public toString(): string {
+    return this.value.toString();
+  }
+
+  public toNumber(): number {
+    return this.value.toNumber();
+  }
 } 
