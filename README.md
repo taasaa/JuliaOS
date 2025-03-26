@@ -7,22 +7,11 @@
 
 ![JuliaOS Banner](./Banner.png)
 
- *This repository is still being developed and serves as a POC to the more refined version after launch of JuliaOS. We encourage you to explore and provide the devs feedback on Telegram. Please note that you may experience errors and issues when using the modules and commands in their current state.
+*This repository is still being developed and serves as a POC to the more refined version after launch of JuliaOS. We encourage you to explore and provide the devs feedback on Telegram. Please note that you may experience errors and issues when using the modules and commands in their current state.
 
 ## Overview
 
 JuliaOS is a comprehensive framework for building decentralized applications (DApps) with a focus on agent-based architectures, swarm intelligence, and cross-chain trading. It provides both a CLI interface for quick deployment and a framework API for custom implementations. By leveraging AI-powered agents and swarm optimization, JuliaOS enables sophisticated trading strategies across multiple blockchains.
-
-## 📋 Table of Contents
-
-- [Features](#features)
-- [Quick Start](#quick-start)
-- [Architecture](#architecture)
-- [Framework Components](#framework-components)
-- [Development Guide](#development-guide)
-- [Security](#security)
-- [Contributing](#contributing)
-- [License](#license)
 
 ## Features
 
@@ -69,6 +58,28 @@ JuliaOS is a comprehensive framework for building decentralized applications (DA
 - **On-chain DEX Prices**: Backup price sources from major DEXes
 - **Aggregated Pricing**: Confidence-weighted data from multiple sources
 - **Configurable Sources**: Customizable price feed priorities
+
+### CLI Features
+- **Cross-Chain Support**: Trade across multiple blockchain networks
+- **AI-Powered Agents**: Intelligent trading agents with customizable strategies
+- **Swarm Intelligence**: Coordinated trading through agent swarms
+- **Wallet Integration**: Support for multiple wallet types
+- **Security**: Built-in security measures and best practices
+- **Monitoring**: Comprehensive monitoring and logging capabilities
+
+### Trading Strategies
+- **Arbitrage**: Cross-chain price arbitrage
+- **Market Making**: Automated market making
+- **Yield Farming**: Optimized yield farming across chains
+- **Custom Strategies**: Extensible strategy framework
+
+### Technical Features
+- **TypeScript/Node.js**: Modern, type-safe implementation
+- **Julia Integration**: High-performance trading logic
+- **Prometheus Metrics**: Detailed performance monitoring
+- **Elasticsearch Logging**: Advanced log aggregation
+- **Health Checks**: System and network monitoring
+- **Alert System**: Customizable alerts and notifications
 
 ## Quick Start
 
@@ -313,3 +324,79 @@ We welcome contributions from the community! Please see [CONTRIBUTING.md](./CONT
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
+
+## Support
+
+- Documentation (Coming Soon)
+- GitHub Issues (Coming Soon)
+- Email Support (Coming Soon)
+
+## Project Structure
+
+```
+my-trading-project/
+├── src/
+│   ├── agents/           # Trading agents
+│   ├── strategies/       # Trading strategies
+│   ├── networks/         # Network configurations
+│   └── utils/           # Utility functions
+├── config/
+│   ├── agents.json      # Agent configurations
+│   ├── networks.json    # Network settings
+│   └── strategies.json  # Strategy parameters
+├── logs/                # Application logs
+├── tests/              # Test files
+└── package.json        # Project dependencies
+```
+
+### Testing
+```bash
+# Run unit tests
+npm run test:unit
+
+# Run integration tests
+npm run test:integration
+
+# Run end-to-end tests
+npm run test:e2e
+```
+
+### Environment Variables
+```bash
+# Required
+J3OS_PRIVATE_KEY=your_private_key
+J3OS_RPC_URL=your_rpc_url
+
+# Optional
+J3OS_LOG_LEVEL=info
+J3OS_MONITORING_PORT=9090
+```
+
+## Monitoring
+
+### Metrics
+```bash
+# Start metrics server
+j3os monitor start
+
+# View metrics
+curl http://localhost:9090/metrics
+```
+
+### Logs
+```bash
+# View logs
+j3os monitor logs
+
+# Filter logs
+j3os monitor logs --level error
+```
+
+### Alerts
+```bash
+# Set up alerts
+j3os monitor add --type balance --threshold 0.1
+
+# List alerts
+j3os monitor list
+```
