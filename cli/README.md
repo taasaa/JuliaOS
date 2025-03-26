@@ -1,109 +1,198 @@
 # J3OS CLI
 
-This directory contains the implementation of the J3OS Command Line Interface (`j3os`), which provides tools for creating and managing AI-powered trading agents and swarms.
+Command-line interface for the J3OS Framework, enabling cross-chain DeFi trading with AI-powered agents and swarms.
 
-## Files
+## Features
 
-- `j3os.ps1` - PowerShell implementation for Windows
-- `j3os.sh` - Bash implementation for Mac/Linux
+- **Cross-Chain Support**
+  - Ethereum and EVM-compatible chains
+  - Solana ecosystem
+  - Custom network configurations
+  - Multi-chain arbitrage capabilities
 
-## Usage
+- **Wallet Integration**
+  - MetaMask support
+  - Phantom wallet support
+  - Rabby multi-chain wallet
+  - Custom RPC configurations
 
-The CLI can be used in two ways:
+- **Trading Strategies**
+  - Market making
+  - Arbitrage
+  - Cross-chain arbitrage
+  - Custom strategy support
 
-1. **Through npm** - The CLI is published to npm as `@j3os/cli` and can be installed globally:
-   ```bash
-   npm install -g @j3os/cli
-   j3os init my-project
-   ```
+- **Execution Types**
+  - Single agent execution
+  - Swarm intelligence execution
+  - Hybrid execution modes
 
-2. **From Repository** - The CLI is designed to be used through the wrapper scripts in the root directory:
-   - `j3os.bat` for Windows
-   - `j3os.sh` for Mac/Linux 
+- **Security Features**
+  - Encrypted configuration storage
+  - Secure file permissions
+  - Environment variable management
+  - Rate limiting for API calls
 
-## Available Commands
+- **Monitoring & Logging**
+  - Prometheus metrics integration
+  - Winston logging system
+  - Elasticsearch log aggregation
+  - Health checks and alerts
 
-### Project Management
-
-- `j3os init [project-name]` - Create a new J3OS project
-- `j3os create -t <type> -n <name>` - Create a new component (agent, skill, connector)
-- `j3os version` - Show version information
-- `j3os help` - Show help information
-
-### DeFi Trading
-
-- `j3os defi` - Configure DeFi trading with swarm intelligence algorithms
-  - Allows creating swarm-based or agent-based trading strategies
-  - Configures algorithms, trading pairs, risk parameters, and more
-
-### Julia Integration
-
-- `j3os julia start` - Start the Julia server
-  - `-p, --port <port>` - Specify the port (default: 3000)
-  - `-d, --debug` - Enable debug mode
-- `j3os julia stop` - Stop the Julia server
-- `j3os julia install` - Install Julia packages
-- `j3os julia run <script>` - Run a Julia script
-- `j3os julia setup-bridge` - Set up the TypeScript-Julia bridge
-
-### Monitoring
-
-- `j3os monitor health` - Check system health
-- `j3os monitor agents` - List active agents
-- `j3os monitor swarms` - List active swarms
-- `j3os monitor agent <id>` - Show detailed agent information
-- `j3os monitor security` - Show security incidents
-- `j3os monitor live` - Monitor system in real-time
-  - `-i, --interval <seconds>` - Update interval (default: 5)
-
-## Workflows
-
-### Setting Up a New Project
+## Installation
 
 ```bash
-# Create a new project
-j3os init my-defi-project
-cd my-defi-project
-
-# Set up the Julia bridge
-j3os julia setup-bridge
-
-# Configure a trading strategy
-j3os defi
-
-# Start the Julia server
-j3os julia start
-
-# Monitor the system
-j3os monitor live
+npm install -g @j3os/cli
 ```
 
-### Working with Agents
+## Quick Start
 
+1. Initialize a new project:
 ```bash
-# Create a new agent
-j3os create -t agent -n MyTrader
+j3os init
+```
 
-# List all active agents
-j3os monitor agents
+2. Configure DeFi trading:
+```bash
+j3os defi configure
+```
 
-# Get details about a specific agent
-j3os monitor agent <agent-id>
+3. Start trading:
+```bash
+j3os start
+```
+
+## Commands
+
+### Project Management
+- `j3os init` - Initialize a new J3OS project
+- `j3os start` - Start the trading system
+- `j3os stop` - Stop the trading system
+- `j3os status` - Check system status
+
+### DeFi Configuration
+- `j3os defi configure` - Configure DeFi trading setup
+- `j3os defi list` - List configured trading setups
+- `j3os defi remove` - Remove a trading setup
+
+### Wallet Management
+- `j3os wallet add-network` - Add a new network
+- `j3os wallet configure` - Configure wallet settings
+- `j3os wallet backup` - Backup wallet configuration
+- `j3os wallet restore` - Restore wallet configuration
+
+### Monitoring
+- `j3os monitor add` - Add a new monitoring rule
+- `j3os monitor list` - List monitoring rules
+- `j3os monitor remove` - Remove a monitoring rule
+- `j3os monitor status` - Check monitoring status
+
+## Configuration
+
+### Environment Variables
+
+Required:
+```bash
+WEB3_PROVIDER="https://your-rpc-url"
+API_KEY="your-api-key"
+WALLET_PRIVATE_KEY="your-private-key"
+```
+
+Optional:
+```bash
+ELASTICSEARCH_URL="https://your-elasticsearch-url"  # For logging
+LOG_LEVEL="info"  # For logging level
+```
+
+### Project Structure
+
+```
+j3os-project/
+├── config/
+│   ├── agent.json
+│   └── swarm.json
+├── julia/
+│   ├── src/
+│   │   ├── agents/
+│   │   └── swarms/
+│   └── tests/
+├── logs/
+│   ├── error.log
+│   └── combined.log
+└── backups/
+    └── metrics.json
 ```
 
 ## Development
 
-When adding new commands, please update both:
-1. The PowerShell implementation (`j3os.ps1`) for Windows users
-2. The Bash implementation (`j3os.sh`) for Mac/Linux users
+### Prerequisites
+- Node.js >= 14
+- Julia >= 1.6
+- npm or yarn
 
-## Publishing
+### Setup
+```bash
+# Clone repository
+git clone https://github.com/j3os/framework.git
+cd framework
 
-To publish a new version:
+# Install dependencies
+npm install
 
-1. Update the version in `package.json`
-2. Run `npm install` to update the lockfile
-3. Commit the changes
-4. Run `npm publish`
+# Build
+npm run build
 
-Make sure you have the necessary permissions to publish to the `@j3os` scope. 
+# Run tests
+npm test
+```
+
+### Running Tests
+
+```bash
+# Run unit tests
+npm run test:unit
+
+# Run integration tests
+npm run test:integration
+
+# Run E2E tests (requires network access)
+RUN_E2E=true npm run test:e2e
+```
+
+## Security
+
+- Never share private keys
+- Use environment variables for sensitive data
+- Regularly backup configurations
+- Monitor for suspicious activity
+- Test on testnet first
+
+## Monitoring
+
+The CLI includes comprehensive monitoring capabilities:
+
+- Transaction monitoring
+- Balance tracking
+- Performance metrics
+- Health checks
+- Alert system
+
+Access metrics at `/metrics` endpoint when running in server mode.
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## License
+
+MIT License - see LICENSE file for details
+
+## Support
+
+- Documentation: [docs.j3os.io](https://docs.j3os.io)
+- Discord: [J3OS Community](https://discord.gg/j3os)
+- GitHub Issues: [J3OS Framework](https://github.com/j3os/framework/issues) 
