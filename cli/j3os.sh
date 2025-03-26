@@ -1,196 +1,155 @@
 #!/bin/bash
-# Main CLI implementation for JuliaOS Framework
+# Main CLI implementation for J3OS Framework
+# This script provides a command-line interface for managing J3OS projects
 
 # Set error handling
 set -e
 
-# Color codes
+# Colors for output
+RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
-RED='\033[0;31m'
 NC='\033[0m' # No Color
+
+# Version
+VERSION="0.1.0"
 
 # Command line arguments
 COMMAND=$1
 COMMAND=${COMMAND:-help}
 shift 1 2>/dev/null || true
 
-# Version function
-version() {
-    echo "JuliaOS CLI v0.1.0"
+# Show version
+show_version() {
+    echo "J3OS CLI v${VERSION}"
 }
 
-# Help function
-help() {
-    version
-    echo ""
+# Show help
+show_help() {
     echo "Usage: j3os <command>"
     echo ""
     echo "Commands:"
-    echo "  init [project-name]  - Create a new JuliaOS project"
-    echo "  create               - Create a new component"
-    echo "  version              - Show version information"
-    echo "  help                 - Show this help information"
+    echo "  init [project-name]  - Create a new J3OS project"
+    echo "  create -t <type> -n <name>  - Create a new component"
+    echo "  version  - Show version information"
+    echo "  help  - Show this help message"
+    echo ""
+    echo "Options:"
+    echo "  -h, --help  - Show help information"
+    echo "  -v, --version  - Show version information"
 }
 
-# Initialize project function
-init() {
-    PROJECT_NAME=${1:-juliaos-project}
+# Initialize a new project
+init_project() {
+    local PROJECT_NAME=${1:-j3os-project}
     
-    version
-    echo -e "${CYAN}Creating a new JuliaOS project: ${PROJECT_NAME}${NC}"
+    echo -e "${CYAN}Creating a new J3OS project: ${PROJECT_NAME}${NC}"
     
     # Create project directory
-    if [ ! -d "$PROJECT_NAME" ]; then
-        mkdir -p "$PROJECT_NAME"
-    else
-        echo -e "${YELLOW}Directory already exists. Using existing directory.${NC}"
-    fi
+    mkdir -p "$PROJECT_NAME"
+    cd "$PROJECT_NAME"
     
-    # Create subdirectories
-    mkdir -p "$PROJECT_NAME/src/agents"
-    mkdir -p "$PROJECT_NAME/src/skills"
-    mkdir -p "$PROJECT_NAME/test"
+    # Initialize npm project
+    npm init -y
     
-    # Create package.json
-    cat > "$PROJECT_NAME/package.json" << EOL
+    # Update package.json
+    cat > package.json << EOF
 {
-  "name": "$PROJECT_NAME",
+  "name": "${PROJECT_NAME}",
   "version": "0.1.0",
-  "description": "A JuliaOS Framework project",
-  "main": "dist/index.js",
+  "description": "A J3OS Framework project",
+  "main": "src/index.ts",
   "scripts": {
+    "start": "ts-node src/index.ts",
     "build": "tsc",
     "test": "jest",
-    "start": "node dist/index.js"
+    "lint": "eslint . --ext .ts"
   },
   "dependencies": {
-    "@juliaos/core": "^0.1.0"
+    "@j3os/core": "^0.1.0"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "jest": "^29.0.0",
-    "@types/node": "^20.0.0"
+    "@types/node": "^16.0.0",
+    "typescript": "^4.0.0",
+    "ts-node": "^10.0.0",
+    "jest": "^27.0.0",
+    "@types/jest": "^27.0.0",
+    "ts-jest": "^27.0.0",
+    "eslint": "^8.0.0",
+    "@typescript-eslint/eslint-plugin": "^5.0.0",
+    "@typescript-eslint/parser": "^5.0.0"
   }
 }
-EOL
+EOF
     
-    # Create tsconfig.json
-    cat > "$PROJECT_NAME/tsconfig.json" << EOL
-{
-  "compilerOptions": {
-    "target": "ES2020",
-    "module": "commonjs",
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true
-  },
-  "include": ["src/**/*"]
-}
-EOL
+    # Create project structure
+    mkdir -p src
+    mkdir -p tests
     
     # Create README.md
-    cat > "$PROJECT_NAME/README.md" << EOL
-# $PROJECT_NAME
+    cat > README.md << EOF
+# ${PROJECT_NAME}
 
-A JuliaOS Framework project
+A J3OS Framework project
 
 ## Getting Started
 
-\`\`\`bash
-npm install
-npm run build
-npm start
-\`\`\`
-EOL
+1. Install dependencies:
+   \`\`\`bash
+   npm install
+   \`\`\`
+
+2. Start the project:
+   \`\`\`bash
+   npm start
+   \`\`\`
+
+3. Run tests:
+   \`\`\`bash
+   npm test
+   \`\`\`
+EOF
     
     # Create .gitignore
-    cat > "$PROJECT_NAME/.gitignore" << EOL
+    cat > .gitignore << EOF
 node_modules/
 dist/
 .env
-.DS_Store
-EOL
+*.log
+EOF
     
-    # Create sample agent
-    cat > "$PROJECT_NAME/src/agents/SampleAgent.ts" << EOL
-import { EventEmitter } from 'events';
-
-export class SampleAgent extends EventEmitter {
-  private name: string;
-  private isRunning: boolean = false;
-
-  constructor(name: string) {
-    super();
-    this.name = name;
-  }
-
-  async start(): Promise<void> {
-    console.log(\`Agent \${this.name} starting...\`);
-    this.isRunning = true;
-    this.emit('started');
-  }
-
-  async stop(): Promise<void> {
-    console.log(\`Agent \${this.name} stopping...\`);
-    this.isRunning = false;
-    this.emit('stopped');
-  }
-
-  isActive(): boolean {
-    return this.isRunning;
-  }
-
-  getName(): string {
-    return this.name;
-  }
+    # Create tsconfig.json
+    cat > tsconfig.json << EOF
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "commonjs",
+    "lib": ["es2020"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "declaration": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "tests"]
 }
-EOL
+EOF
     
-    # Create main index.ts
-    cat > "$PROJECT_NAME/src/index.ts" << EOL
-import { SampleAgent } from './agents/SampleAgent';
-
-async function main() {
-  // Create a sample agent
-  const agent = new SampleAgent('MyFirstAgent');
-  
-  // Register event listeners
-  agent.on('started', () => {
-    console.log('Agent started successfully!');
-  });
-  
-  agent.on('stopped', () => {
-    console.log('Agent stopped successfully!');
-  });
-  
-  // Start the agent
-  await agent.start();
-  
-  // Do some work
-  console.log(\`Agent \${agent.getName()} is active: \${agent.isActive()}\`);
-  
-  // Stop the agent
-  setTimeout(async () => {
-    await agent.stop();
-    console.log('Process complete.');
-  }, 2000);
-}
-
-main().catch(console.error);
-EOL
+    # Create initial source file
+    cat > src/index.ts << EOF
+// J3OS Framework entry point
+console.log('Welcome to J3OS Framework!');
+EOF
     
-    echo ""
+    # Install dependencies
+    npm install
+    
     echo -e "${GREEN}Project created successfully!${NC}"
-    echo ""
-    echo "To get started, run:"
-    echo -e "  cd $PROJECT_NAME"
-    echo -e "  npm install"
-    echo -e "  npm run build"
-    echo -e "  npm start"
+    echo -e "${YELLOW}Run 'j3os help' for usage information${NC}"
 }
 
 # Create component function
@@ -201,23 +160,23 @@ create() {
     echo -e "${YELLOW}This feature is coming soon!${NC}"
 }
 
-# Main command execution
-case $COMMAND in
+# Main command handling
+case "$COMMAND" in
     "init")
-        init "$@"
+        init_project "$2"
         ;;
     "create")
         create "$@"
         ;;
-    "version")
-        version
+    "version"|"-v"|"--version")
+        show_version
         ;;
-    "help")
-        help
+    "help"|"-h"|"--help"|"")
+        show_help
         ;;
     *)
         echo -e "${RED}Unknown command: $COMMAND${NC}"
-        echo -e "${YELLOW}Run 'j3os help' for usage information${NC}"
+        show_help
         exit 1
         ;;
 esac 
