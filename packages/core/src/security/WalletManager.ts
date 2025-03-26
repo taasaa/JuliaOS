@@ -1,17 +1,17 @@
-import { ethers } from 'ethers';
-import { ChainId, Provider } from '../types';
+import { Connection, Keypair, PublicKey } from '@solana/web3.js';
+import { ChainId, TokenAmount } from '../types';
 import { logger } from '../utils/logger';
 import { RiskManager } from './RiskManager';
 
 export class WalletManager {
   private static instance: WalletManager;
-  private wallets: Map<ChainId, ethers.Wallet>;
-  private providers: Map<ChainId, Provider>;
+  private wallets: Map<ChainId, Keypair>;
+  private connections: Map<ChainId, Connection>;
   private riskManager: RiskManager;
 
   private constructor() {
     this.wallets = new Map();
-    this.providers = new Map();
+    this.connections = new Map();
     this.riskManager = RiskManager.getInstance();
   }
 
@@ -25,64 +25,19 @@ export class WalletManager {
   public async initializeWallet(
     chainId: ChainId,
     privateKey: string,
-    provider: Provider
+    connection: Connection
   ): Promise<void> {
     try {
-      const wallet = new ethers.Wallet(privateKey, provider);
-      this.wallets.set(chainId, wallet);
-      this.providers.set(chainId, provider);
+      // Convert private key to Uint8Array
+      const secretKey = Buffer.from(privateKey, 'base64');
+      const keypair = Keypair.fromSecretKey(secretKey);
+      
+      this.wallets.set(chainId, keypair);
+      this.connections.set(chainId, connection);
+      
       logger.info(`Initialized wallet for chain ${chainId}`);
     } catch (error) {
-      logger.error(`Failed to initialize wallet for chain ${chainId}: ${error}`);
-      throw error;
-    }
-  }
-
-  public async signTransaction(
-    chainId: ChainId,
-    transaction: any
-  ): Promise<string> {
-    const wallet = this.wallets.get(chainId);
-    if (!wallet) {
-      throw new Error(`No wallet initialized for chain ${chainId}`);
-    }
-
-    try {
-      const signedTx = await wallet.signTransaction(transaction);
-      return signedTx;
-    } catch (error) {
-      logger.error(`Failed to sign transaction: ${error}`);
-      throw error;
-    }
-  }
-
-  public async sendTransaction(
-    chainId: ChainId,
-    transaction: any
-  ): Promise<any> {
-    const wallet = this.wallets.get(chainId);
-    if (!wallet) {
-      throw new Error(`No wallet initialized for chain ${chainId}`);
-    }
-
-    try {
-      // Validate transaction with risk manager
-      const isValid = await this.riskManager.validateTransaction(
-        chainId,
-        transaction.value,
-        transaction.gasPrice,
-        0 // Slippage will be calculated by DEX
-      );
-
-      if (!isValid) {
-        throw new Error('Transaction failed risk validation');
-      }
-
-      const tx = await wallet.sendTransaction(transaction);
-      logger.info(`Transaction sent: ${tx.hash}`);
-      return tx;
-    } catch (error) {
-      logger.error(`Failed to send transaction: ${error}`);
+      logger.error(`Failed to initialize wallet: ${error}`);
       throw error;
     }
   }
@@ -92,20 +47,59 @@ export class WalletManager {
     if (!wallet) {
       throw new Error(`No wallet initialized for chain ${chainId}`);
     }
-    return wallet.address;
+    return wallet.publicKey.toString();
   }
 
-  public async getBalance(chainId: ChainId): Promise<string> {
+  public async getBalance(chainId: ChainId): Promise<TokenAmount> {
+    const connection = this.connections.get(chainId);
+    const wallet = this.wallets.get(chainId);
+    
+    if (!connection || !wallet) {
+      throw new Error(`No wallet or connection initialized for chain ${chainId}`);
+    }
+
+    try {
+      const balance = await connection.getBalance(wallet.publicKey);
+      return TokenAmount.fromRaw(balance.toString(), 9); // SOL has 9 decimals
+    } catch (error) {
+      logger.error(`Failed to get balance: ${error}`);
+      throw error;
+    }
+  }
+
+  public async signTransaction(
+    chainId: ChainId,
+    transaction: any
+  ): Promise<any> {
     const wallet = this.wallets.get(chainId);
     if (!wallet) {
       throw new Error(`No wallet initialized for chain ${chainId}`);
     }
 
     try {
-      const balance = await wallet.getBalance();
-      return balance.toString();
+      transaction.partialSign(wallet);
+      return transaction;
     } catch (error) {
-      logger.error(`Failed to get balance: ${error}`);
+      logger.error(`Failed to sign transaction: ${error}`);
+      throw error;
+    }
+  }
+
+  public async sendTransaction(
+    chainId: ChainId,
+    transaction: any
+  ): Promise<string> {
+    const connection = this.connections.get(chainId);
+    if (!connection) {
+      throw new Error(`No connection initialized for chain ${chainId}`);
+    }
+
+    try {
+      const signature = await connection.sendRawTransaction(transaction.serialize());
+      logger.info(`Transaction sent: ${signature}`);
+      return signature;
+    } catch (error) {
+      logger.error(`Failed to send transaction: ${error}`);
       throw error;
     }
   }
@@ -117,7 +111,7 @@ export class WalletManager {
     }
 
     try {
-      const nonce = await wallet.getTransactionCount();
+      const nonce = await connection.getTransactionCount(wallet.publicKey);
       return nonce;
     } catch (error) {
       logger.error(`Failed to get nonce: ${error}`);
@@ -127,7 +121,7 @@ export class WalletManager {
 
   public removeWallet(chainId: ChainId): void {
     this.wallets.delete(chainId);
-    this.providers.delete(chainId);
+    this.connections.delete(chainId);
     logger.info(`Removed wallet for chain ${chainId}`);
   }
 } 

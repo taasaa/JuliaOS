@@ -1,0 +1,13 @@
+{
+  "name": "solana-test-new",
+  "version": "1.0.0",
+  "description": "Solana connection test",
+  "main": "test.js",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "@solana/web3.js": "^1.87.6",
+    "dotenv": "^16.3.1"
+  }
+} 
