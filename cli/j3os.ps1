@@ -1,221 +1,161 @@
-param(
-    [Parameter(Position=0)]
-    [string]$Command = "help",
-    
-    [Parameter(Position=1, ValueFromRemainingArguments=$true)]
-    [string[]]$Arguments
-)
+# J3OS CLI PowerShell Implementation
+# This script provides a command-line interface for managing J3OS projects
 
-# Set error action preference
-$ErrorActionPreference = "Stop"
+# Version
+$VERSION = "0.1.0"
 
+# Show version
 function Show-Version {
-    Write-Host "JuliaOS CLI v0.1.0"
+    Write-Host "J3OS CLI v$VERSION"
 }
 
+# Show help
 function Show-Help {
-    Show-Version
-    Write-Host ""
     Write-Host "Usage: j3os <command>"
     Write-Host ""
     Write-Host "Commands:"
-    Write-Host "  init [project-name]  - Create a new JuliaOS project"
-    Write-Host "  create               - Create a new component"
-    Write-Host "  version              - Show version information"
-    Write-Host "  help                 - Show this help information"
+    Write-Host "  init [project-name]  - Create a new J3OS project"
+    Write-Host "  create -t <type> -n <name>  - Create a new component"
+    Write-Host "  version  - Show version information"
+    Write-Host "  help  - Show this help message"
+    Write-Host ""
+    Write-Host "Options:"
+    Write-Host "  -h, --help  - Show help information"
+    Write-Host "  -v, --version  - Show version information"
 }
 
+# Initialize a new project
 function Initialize-Project {
     param(
-        [string]$ProjectName = "juliaos-project"
+        [string]$ProjectName = "j3os-project"
     )
     
-    Show-Version
-    Write-Host "Creating a new JuliaOS project: $ProjectName" -ForegroundColor Cyan
+    Write-Host "Creating a new J3OS project: $ProjectName" -ForegroundColor Cyan
     
     # Create project directory
-    if (!(Test-Path $ProjectName)) {
-        New-Item -ItemType Directory -Path $ProjectName | Out-Null
-    } else {
-        Write-Host "Directory already exists. Using existing directory." -ForegroundColor Yellow
-    }
+    New-Item -ItemType Directory -Path $ProjectName -Force | Out-Null
+    Set-Location $ProjectName
     
-    # Create subdirectories
-    New-Item -ItemType Directory -Path "$ProjectName\src" -Force | Out-Null
-    New-Item -ItemType Directory -Path "$ProjectName\src\agents" -Force | Out-Null
-    New-Item -ItemType Directory -Path "$ProjectName\src\skills" -Force | Out-Null
-    New-Item -ItemType Directory -Path "$ProjectName\test" -Force | Out-Null
+    # Initialize npm project
+    npm init -y | Out-Null
     
-    # Create package.json
-    $packageJson = @"
+    # Update package.json
+    @"
 {
   "name": "$ProjectName",
   "version": "0.1.0",
-  "description": "A JuliaOS Framework project",
-  "main": "dist/index.js",
+  "description": "A J3OS Framework project",
+  "main": "src/index.ts",
   "scripts": {
+    "start": "ts-node src/index.ts",
     "build": "tsc",
     "test": "jest",
-    "start": "node dist/index.js"
+    "lint": "eslint . --ext .ts"
   },
   "dependencies": {
-    "@juliaos/core": "^0.1.0"
+    "@j3os/core": "^0.1.0"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "jest": "^29.0.0",
-    "@types/node": "^20.0.0"
+    "@types/node": "^16.0.0",
+    "typescript": "^4.0.0",
+    "ts-node": "^10.0.0",
+    "jest": "^27.0.0",
+    "@types/jest": "^27.0.0",
+    "ts-jest": "^27.0.0",
+    "eslint": "^8.0.0",
+    "@typescript-eslint/eslint-plugin": "^5.0.0",
+    "@typescript-eslint/parser": "^5.0.0"
   }
 }
-"@
-    Set-Content -Path "$ProjectName\package.json" -Value $packageJson
+"@ | Set-Content -Path "package.json"
     
-    # Create tsconfig.json
-    $tsconfig = @"
-{
-  "compilerOptions": {
-    "target": "ES2020",
-    "module": "commonjs",
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true
-  },
-  "include": ["src/**/*"]
-}
-"@
-    Set-Content -Path "$ProjectName\tsconfig.json" -Value $tsconfig
+    # Create project structure
+    New-Item -ItemType Directory -Path "src" -Force | Out-Null
+    New-Item -ItemType Directory -Path "tests" -Force | Out-Null
     
     # Create README.md
-    $readme = @"
+    @"
 # $ProjectName
 
-A JuliaOS Framework project
+A J3OS Framework project
 
 ## Getting Started
 
-```bash
-npm install
-npm run build
-npm start
-```
-"@
-    Set-Content -Path "$ProjectName\README.md" -Value $readme
+1. Install dependencies:
+   \`\`\`bash
+   npm install
+   \`\`\`
+
+2. Start the project:
+   \`\`\`bash
+   npm start
+   \`\`\`
+
+3. Run tests:
+   \`\`\`bash
+   npm test
+   \`\`\`
+"@ | Set-Content -Path "README.md"
     
     # Create .gitignore
-    $gitignore = @"
+    @"
 node_modules/
 dist/
 .env
-.DS_Store
-"@
-    Set-Content -Path "$ProjectName\.gitignore" -Value $gitignore
+*.log
+"@ | Set-Content -Path ".gitignore"
     
-    # Create sample agent
-    $sampleAgent = @"
-import { EventEmitter } from 'events';
-
-export class SampleAgent extends EventEmitter {
-  private name: string;
-  private isRunning: boolean = false;
-
-  constructor(name: string) {
-    super();
-    this.name = name;
-  }
-
-  async start(): Promise<void> {
-    console.log(`Agent \${this.name} starting...`);
-    this.isRunning = true;
-    this.emit('started');
-  }
-
-  async stop(): Promise<void> {
-    console.log(`Agent \${this.name} stopping...`);
-    this.isRunning = false;
-    this.emit('stopped');
-  }
-
-  isActive(): boolean {
-    return this.isRunning;
-  }
-
-  getName(): string {
-    return this.name;
-  }
+    # Create tsconfig.json
+    @"
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "commonjs",
+    "lib": ["es2020"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "declaration": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "tests"]
 }
-"@
-    Set-Content -Path "$ProjectName\src\agents\SampleAgent.ts" -Value $sampleAgent
+"@ | Set-Content -Path "tsconfig.json"
     
-    # Create main index.ts
-    $mainIndex = @"
-import { SampleAgent } from './agents/SampleAgent';
-
-async function main() {
-  // Create a sample agent
-  const agent = new SampleAgent('MyFirstAgent');
-  
-  // Register event listeners
-  agent.on('started', () => {
-    console.log('Agent started successfully!');
-  });
-  
-  agent.on('stopped', () => {
-    console.log('Agent stopped successfully!');
-  });
-  
-  // Start the agent
-  await agent.start();
-  
-  // Do some work
-  console.log(`Agent \${agent.getName()} is active: \${agent.isActive()}`);
-  
-  // Stop the agent
-  setTimeout(async () => {
-    await agent.stop();
-    console.log('Process complete.');
-  }, 2000);
-}
-
-main().catch(console.error);
-"@
-    Set-Content -Path "$ProjectName\src\index.ts" -Value $mainIndex
+    # Create initial source file
+    @"
+// J3OS Framework entry point
+console.log('Welcome to J3OS Framework!');
+"@ | Set-Content -Path "src/index.ts"
     
-    Write-Host ""
+    # Install dependencies
+    npm install | Out-Null
+    
     Write-Host "Project created successfully!" -ForegroundColor Green
-    Write-Host ""
-    Write-Host "To get started, run:"
-    Write-Host "  cd $ProjectName" -ForegroundColor Cyan
-    Write-Host "  npm install" -ForegroundColor Cyan
-    Write-Host "  npm run build" -ForegroundColor Cyan
-    Write-Host "  npm start" -ForegroundColor Cyan
+    Write-Host "Run 'j3os help' for usage information" -ForegroundColor Yellow
 }
 
-function Create-Component {
-    Show-Version
-    Write-Host "Creating a new component..." -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host "This feature is coming soon!" -ForegroundColor Yellow
-}
+# Main command handling
+$Command = $args[0]
 
-# Execute the appropriate command
-try {
-    switch ($Command.ToLower()) {
-        "init" { 
-            $projectName = if ($Arguments -and $Arguments.Length -gt 0) { $Arguments[0] } else { "juliaos-project" }
-            Initialize-Project -ProjectName $projectName 
-        }
-        "create" { Create-Component }
-        "version" { Show-Version }
-        "help" { Show-Help }
-        default {
-            Write-Host "Unknown command: $Command" -ForegroundColor Red
-            Write-Host "Run 'j3os help' for usage information" -ForegroundColor Yellow
-        }
+switch ($Command) {
+    "init" {
+        $projectName = if ($args.Length -gt 1) { $args[1] } else { "j3os-project" }
+        Initialize-Project -ProjectName $projectName
     }
-} catch {
-    Write-Host "Error: $_" -ForegroundColor Red
-    Write-Host $_.ScriptStackTrace -ForegroundColor Red
-    exit 1
+    "version" { Show-Version }
+    "help" { Show-Help }
+    "-v" { Show-Version }
+    "--version" { Show-Version }
+    "-h" { Show-Help }
+    "--help" { Show-Help }
+    "" { Show-Help }
+    default {
+        Write-Host "Unknown command: $Command" -ForegroundColor Red
+        Show-Help
+        exit 1
+    }
 } 

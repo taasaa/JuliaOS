@@ -1,6 +1,6 @@
-# JuliaOS CLI
+# J3OS CLI
 
-This directory contains the implementation of the JuliaOS Command Line Interface (`j3os`), which provides tools for creating and managing AI-powered trading agents and swarms.
+This directory contains the implementation of the J3OS Command Line Interface (`j3os`), which provides tools for creating and managing AI-powered trading agents and swarms.
 
 ## Files
 
@@ -11,9 +11,9 @@ This directory contains the implementation of the JuliaOS Command Line Interface
 
 The CLI can be used in two ways:
 
-1. **Through npm** - The CLI is published to npm as `@juliaos/cli` and can be installed globally:
+1. **Through npm** - The CLI is published to npm as `@j3os/cli` and can be installed globally:
    ```bash
-   npm install -g @juliaos/cli
+   npm install -g @j3os/cli
    j3os init my-project
    ```
 
@@ -25,7 +25,7 @@ The CLI can be used in two ways:
 
 ### Project Management
 
-- `j3os init [project-name]` - Create a new JuliaOS project
+- `j3os init [project-name]` - Create a new J3OS project
 - `j3os create -t <type> -n <name>` - Create a new component (agent, skill, connector)
 - `j3os version` - Show version information
 - `j3os help` - Show help information
@@ -99,9 +99,11 @@ When adding new commands, please update both:
 
 ## Publishing
 
-To publish a new version to npm:
+To publish a new version:
 
-1. Update the version number in `package.json`
-2. Run `npm publish`
+1. Update the version in `package.json`
+2. Run `npm install` to update the lockfile
+3. Commit the changes
+4. Run `npm publish`
 
-Make sure you have the necessary permissions to publish to the `@juliaos` scope. 
+Make sure you have the necessary permissions to publish to the `@j3os` scope. 

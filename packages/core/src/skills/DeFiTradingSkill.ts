@@ -1,8 +1,11 @@
 import { BaseAgent } from '../agents/BaseAgent';
 import { Skill } from './Skill';
 import { ethers } from 'ethers';
+import { JuliaBridge } from '../bridge/JuliaBridge';
 
 export interface DeFiTradingConfig {
+  name: string;
+  type: string;
   parameters: {
     tradingPairs: string[];
     swarmSize: number;
@@ -27,10 +30,10 @@ export interface MarketData {
 }
 
 export class DeFiTradingSkill extends Skill {
-  private agent: BaseAgent;
-  protected parameters: DeFiTradingConfig['parameters'];
-  private provider!: ethers.JsonRpcProvider;
-  private wallet!: ethers.Wallet;
+  private bridge: JuliaBridge;
+  private config: DeFiTradingConfig;
+  private provider: ethers.Provider;
+  private wallet: ethers.Wallet;
   private positions: Map<string, {
     entryPrice: number;
     size: number;
@@ -38,36 +41,62 @@ export class DeFiTradingSkill extends Skill {
     takeProfit: number;
   }> = new Map();
 
-  constructor(agent: BaseAgent, parameters: DeFiTradingConfig['parameters']) {
-    super(parameters, 'DeFiTrading', 'trading');
-    this.agent = agent;
-    this.parameters = parameters;
+  constructor(agent: BaseAgent, config: DeFiTradingConfig) {
+    super(agent, config);
+    this.config = config;
+    this.bridge = new JuliaBridge();
   }
 
   async initialize(): Promise<void> {
-    try {
-      // Initialize provider and wallet
-      this.provider = new ethers.JsonRpcProvider(this.parameters.provider);
-      this.wallet = new ethers.Wallet(this.parameters.wallet, this.provider);
+    // Initialize Julia bridge
+    await this.bridge.initialize();
 
-      // Initialize trading parameters
-      for (const pair of this.parameters.tradingPairs) {
-        this.positions.set(pair, {
-          entryPrice: 0,
-          size: 0,
-          stopLoss: 0,
-          takeProfit: 0
-        });
-      }
+    // Initialize provider and wallet
+    this.provider = new ethers.JsonRpcProvider(this.config.parameters.provider);
+    this.wallet = new ethers.Wallet(this.config.parameters.wallet, this.provider);
 
-      this.setInitialized(true);
-    } catch (error) {
-      console.error('Failed to initialize DeFiTradingSkill:', error);
-      throw error;
+    // Send trading configuration to Julia
+    await this.bridge.executeCode(`
+      using ..JuliaOS
+      using ..SwarmManager
+      using ..MarketData
+
+      # Initialize swarm configuration
+      swarm_config = SwarmConfig(
+        "${this.config.name}",
+        ${this.config.parameters.swarmSize},
+        "${this.config.parameters.algorithm}",
+        ${JSON.stringify(this.config.parameters.tradingPairs)},
+        Dict{String, Any}(
+          "max_position_size" => ${this.config.parameters.riskParameters.maxPositionSize},
+          "stop_loss" => ${this.config.parameters.riskParameters.stopLoss},
+          "take_profit" => ${this.config.parameters.riskParameters.takeProfit},
+          "max_drawdown" => ${this.config.parameters.riskParameters.maxDrawdown},
+          "learning_rate" => 0.1,
+          "inertia" => 0.7,
+          "cognitive_weight" => 1.5,
+          "social_weight" => 1.5
+        )
+      )
+
+      # Create and initialize swarm
+      swarm = create_swarm(swarm_config)
+    `);
+
+    // Initialize trading parameters
+    for (const pair of this.config.parameters.tradingPairs) {
+      this.positions.set(pair, {
+        entryPrice: 0,
+        size: 0,
+        stopLoss: 0,
+        takeProfit: 0
+      });
     }
+
+    this.setInitialized(true);
   }
 
-  async execute(): Promise<void> {
+  async execute(marketData: any): Promise<any> {
     if (!this.isInitialized) {
       throw new Error('DeFiTradingSkill not initialized');
     }
@@ -75,24 +104,36 @@ export class DeFiTradingSkill extends Skill {
     try {
       this.setRunning(true);
 
-      // Monitor positions and market data
-      for (const pair of this.parameters.tradingPairs) {
-        const marketData = await this.fetchMarketData(pair);
-        const position = this.positions.get(pair)!;
+      // Send market data to Julia for analysis
+      const result = await this.bridge.executeCode(`
+        using ..JuliaOS
+        using ..SwarmManager
+        using ..MarketData
 
-        // Check stop loss and take profit
-        if (this.shouldClosePosition(pair, marketData.price, position)) {
-          await this.closePosition(pair);
-          continue;
-        }
+        # Update market data
+        update_market_data!(swarm, ${JSON.stringify(marketData)})
 
-        // Check for new trading opportunities
-        if (this.shouldOpenPosition(pair, marketData)) {
-          await this.openPosition(pair, marketData);
-        }
-      }
+        # Get trading signals from swarm
+        signals = get_trading_signals(swarm)
+
+        # Execute trades based on signals
+        for signal in signals
+          if signal.confidence > 0.7  # Minimum confidence threshold
+            execute_trade!(swarm, signal)
+          end
+        end
+
+        # Return updated state
+        Dict(
+          "signals" => signals,
+          "portfolio" => get_portfolio_value(swarm),
+          "performance" => get_performance_metrics(swarm)
+        )
+      `);
+
+      return result;
     } catch (error) {
-      console.error('Error executing DeFiTradingSkill:', error);
+      console.error('Error executing DeFi trading skill:', error);
       throw error;
     }
   }
@@ -110,6 +151,16 @@ export class DeFiTradingSkill extends Skill {
       // Clean up resources
       this.positions.clear();
       this.setRunning(false);
+
+      // Clean up Julia resources
+      await this.bridge.executeCode(`
+        using ..JuliaOS
+        using ..SwarmManager
+
+        # Stop swarm and save state
+        stop_swarm!(swarm)
+        save_swarm_state(swarm, "${this.config.name}_state.json")
+      `);
     } catch (error) {
       console.error('Error stopping DeFiTradingSkill:', error);
       throw error;
